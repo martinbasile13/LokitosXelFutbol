@@ -12,8 +12,12 @@ const Navbar = () => {
   return (
     <div className="navbar bg-base-100 border-b border-base-300 sticky top-0 z-50">
       <div className="navbar-start">
-        <Link to="/" className="btn btn-ghost text-xl text-primary font-bold">
-          LokitosXelFutbol ⚽
+        <Link to="/" className="btn btn-ghost">
+          <img 
+            src="/logo/logo.png" 
+            alt="LokitosXelFutbol" 
+            className="h-50 w-auto"
+          />
         </Link>
       </div>
 

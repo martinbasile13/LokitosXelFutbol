@@ -88,9 +88,13 @@ const Auth = () => {
             
             {/* Header */}
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-primary mb-2">
-                LokitosXelFutbol ⚽
-              </h1>
+              <div className="flex justify-center mb-4">
+                <img 
+                  src="/logo/logo.png" 
+                  alt="LokitosXelFutbol" 
+                  className="h-24 w-auto"
+                />
+              </div>
               <p className="text-base-content/70">
                 {isLogin ? 'Inicia sesión en tu cuenta' : 'Crea tu cuenta'}
               </p>
