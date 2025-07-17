@@ -92,7 +92,7 @@ const Auth = () => {
                 <img 
                   src="/logo/logo.png" 
                   alt="LokitosXelFutbol" 
-                  className="h-24 w-auto"
+                  className="h-50 w-auto"
                 />
               </div>
               <p className="text-base-content/70">
