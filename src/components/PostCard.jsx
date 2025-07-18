@@ -276,7 +276,11 @@ const PostCard = ({ post, onDelete }) => {
   }
 
   return (
-    <div className="bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
+    <Link 
+      to={`/post/${postData.id}`}
+      onClick={handlePostClick}
+      className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative cursor-pointer"
+    >
       <div className="p-6">
         {/* Header */}
         <div className="flex items-start space-x-3">
@@ -311,14 +315,10 @@ const PostCard = ({ post, onDelete }) => {
           </div>
         </div>
 
-        {/* Contenido del post - Clickeable */}
-        <Link 
-          to={`/post/${postData.id}`}
-          onClick={handlePostClick}
-          className="block mt-3 hover:bg-base-200/30 rounded-lg p-2 -m-2 transition-colors duration-200"
-        >
+        {/* Contenido del post */}
+        <div className="mt-3">
           <p className="text-base-content leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{postData.content}</p>
-        </Link>
+        </div>
 
         {/* Acciones */}
         <div className="flex items-center justify-between pt-3">
@@ -330,7 +330,11 @@ const PostCard = ({ post, onDelete }) => {
                   ? 'text-orange-500 bg-orange-50' 
                   : 'text-base-content/60 hover:text-orange-500 hover:bg-orange-50'
               }`}
-              onClick={(e) => handleVote('up', e)}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleVote('up', e)
+              }}
               disabled={isLoading}
             >
               <ChevronUp className="w-5 h-5" />
@@ -342,7 +346,11 @@ const PostCard = ({ post, onDelete }) => {
                   ? 'text-blue-500 bg-blue-50' 
                   : 'text-base-content/60 hover:text-blue-500 hover:bg-blue-50'
               }`}
-              onClick={(e) => handleVote('down', e)}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleVote('down', e)
+              }}
               disabled={isLoading}
             >
               <ChevronDown className="w-5 h-5" />
@@ -352,15 +360,11 @@ const PostCard = ({ post, onDelete }) => {
 
           {/* Otras acciones */}
           <div className="flex items-center space-x-4">
-            {/* Comentarios - Clickeable */}
-            <Link 
-              to={`/post/${postData.id}`}
-              onClick={handlePostClick}
-              className="flex items-center space-x-2 text-base-content/60 hover:text-blue-500 transition-all duration-200 hover:scale-110"
-            >
+            {/* Comentarios */}
+            <div className="flex items-center space-x-2 text-base-content/60">
               <MessageCircle className="w-5 h-5" />
               <span className="text-sm">{postData.comments_count || 0}</span>
-            </Link>
+            </div>
 
             {/* Likes */}
             <button 
@@ -369,7 +373,11 @@ const PostCard = ({ post, onDelete }) => {
                   ? 'text-red-500' 
                   : 'text-base-content/60 hover:text-red-500'
               }`}
-              onClick={handleLike}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleLike(e)
+              }}
               disabled={isLiking}
             >
               <Heart className={`w-5 h-5 ${postData.user_liked ? 'fill-current animate-pulse' : ''}`} />
@@ -388,6 +396,10 @@ const PostCard = ({ post, onDelete }) => {
                 tabIndex={0} 
                 role="button" 
                 className="btn btn-ghost btn-circle btn-sm hover:scale-110 transition-transform duration-200"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
               >
                 <MoreHorizontal className="w-5 h-5" />
               </div>
@@ -396,7 +408,11 @@ const PostCard = ({ post, onDelete }) => {
                 <li>
                   <button 
                     type="button"
-                    onClick={handleCopyLink}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleCopyLink()
+                    }}
                     className="flex items-center gap-2 w-full text-left"
                   >
                     📋 Copiar enlace
@@ -409,7 +425,11 @@ const PostCard = ({ post, onDelete }) => {
                     <li>
                       <button 
                         type="button"
-                        onClick={handleEdit}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleEdit()
+                        }}
                         className="flex items-center gap-2 w-full text-left"
                       >
                         <Edit className="w-4 h-4" />
@@ -419,7 +439,11 @@ const PostCard = ({ post, onDelete }) => {
                     <li>
                       <button 
                         type="button"
-                        onClick={handleDelete}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleDelete()
+                        }}
                         disabled={isDeleting}
                         className={`flex items-center gap-2 w-full text-left text-error hover:bg-error hover:text-error-content ${isDeleting ? 'pointer-events-none opacity-50' : ''}`}
                       >
@@ -443,7 +467,11 @@ const PostCard = ({ post, onDelete }) => {
                     <li>
                       <button 
                         type="button"
-                        onClick={handleFollow}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleFollow()
+                        }}
                         className="flex items-center gap-2 w-full text-left"
                       >
                         <UserPlus className="w-4 h-4" />
@@ -453,7 +481,11 @@ const PostCard = ({ post, onDelete }) => {
                     <li>
                       <button 
                         type="button"
-                        onClick={handleReport}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleReport()
+                        }}
                         className="flex items-center gap-2 w-full text-left text-warning"
                       >
                         <Flag className="w-4 h-4" />
@@ -467,7 +499,7 @@ const PostCard = ({ post, onDelete }) => {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
