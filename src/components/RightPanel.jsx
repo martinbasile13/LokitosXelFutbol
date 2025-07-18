@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getSuggestedUsers, followUser, getUserStats, updateUserProfileWithAvatar } from '../services/userService'
 import { validateFile, getReadableFileSize } from '../services/mediaService'
+import { EQUIPOS_PRIMERA } from '../data/equipos'
 import Avatar from './Avatar'
+import TeamBadge from './TeamBadge'
 import { 
   Edit, 
   TrendingUp, 
@@ -104,12 +106,7 @@ const RightPanel = () => {
     return profile?.avatar_url || null
   }
 
-  const getTeamBadge = (profile) => {
-    const experience = profile?.experience_points || 0
-    if (experience > 1000) return '🏆'
-    if (experience > 500) return '⚽'
-    return '🔰'
-  }
+
 
   // Funciones para el modal de edición de perfil
   const openEditModal = () => {
@@ -243,11 +240,13 @@ const RightPanel = () => {
               <p className="text-xs text-base-content/70">
                 @{userProfile?.username || user?.user_metadata?.username || 'usuario'}
               </p>
-              <p className="text-xs mt-1">
-                <span className="badge badge-primary badge-xs">
-                  {getTeamBadge(userProfile)} {userProfile?.team || 'Sin Equipo'}
-                </span>
-              </p>
+              <div className="mt-1">
+                {userProfile?.team ? (
+                  <TeamBadge team={userProfile.team} size="sm" showName={true} />
+                ) : (
+                  <span className="text-xs text-base-content/70">Sin equipo</span>
+                )}
+              </div>
             </div>
           </div>
           
@@ -331,9 +330,13 @@ const RightPanel = () => {
                       <p className="text-xs text-base-content/70 truncate">
                         @{suggestedUser.username}
                       </p>
-                      <p className="text-xs text-primary truncate">
-                        {getTeamBadge(suggestedUser)} {suggestedUser.team || 'Sin Equipo'}
-                      </p>
+                      <div className="text-xs">
+                        {suggestedUser.team ? (
+                          <TeamBadge team={suggestedUser.team} size="xs" showName={true} />
+                        ) : (
+                          <span className="text-base-content/70">Sin equipo</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button 
@@ -403,20 +406,36 @@ const RightPanel = () => {
                   <label className="label">
                     <span className="label-text">Equipo favorito</span>
                   </label>
-                  <input 
-                    type="text"
-                    className="input input-bordered w-full"
-                    value={editFormData.team}
+                  <select 
+                    className="select select-bordered w-full"
+                    value={editFormData.team || ''}
                     onChange={(e) => setEditFormData(prev => ({
                       ...prev,
                       team: e.target.value
                     }))}
-                    placeholder="Ej: River Plate, Boca Juniors, Real Madrid..."
                     disabled={isUpdating}
-                  />
+                  >
+                    <option value="">-- Selecciona tu equipo --</option>
+                    {EQUIPOS_PRIMERA.map((equipo) => (
+                      <option key={equipo.archivo} value={equipo.nombre}>
+                        {equipo.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {/* Vista previa del escudo seleccionado */}
+                  {editFormData.team && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <TeamBadge team={editFormData.team} size="sm" />
+                      <span className="text-sm text-base-content/70">
+                        Vista previa del escudo
+                      </span>
+                    </div>
+                  )}
+                  
                   <label className="label">
                     <span className="label-text-alt text-base-content/70">
-                      Muestra tu equipo favorito en tu perfil
+                      Selecciona tu equipo de Primera División
                     </span>
                   </label>
                 </div>

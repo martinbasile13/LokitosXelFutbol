@@ -32,12 +32,25 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
     const userIds = [...new Set(posts.map(post => post.user_id))]
     const postIds = posts.map(post => post.id)
     
-    // Obtener perfiles de usuarios e interacciones en paralelo
-    const [profilesResult, interactionsResult] = await Promise.all([
+    // Obtener perfiles de usuarios, conteo de comentarios e interacciones en paralelo
+    const [profilesResult, commentsCountResult, interactionsResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, experience_points, team, avatar_url')
         .in('id', userIds),
+      
+      // Contar comentarios por post
+      supabase
+        .from('comments')
+        .select('post_id')
+        .in('post_id', postIds)
+        .then(({ data }) => {
+          const counts = {}
+          data?.forEach(comment => {
+            counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
+          })
+          return counts
+        }),
       
       // Obtener datos de interacciones (likes, views, votaciones)
       getPostsInteractions(postIds, userId)
@@ -60,10 +73,12 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
         downvotes: 0,
         user_vote: null
       }
+      const commentsCount = commentsCountResult[post.id] || 0
       
       return {
         ...post,
         profiles: profile || null,
+        comments_count: commentsCount,
         ...interactions
       }
     })
@@ -370,6 +385,8 @@ export const getPostsInteractions = async (postIds, userId = null) => {
       .select('post_id')
       .in('post_id', postIds)
 
+    console.log('🔍 Views obtenidas:', { views, viewsError, postIds })
+
     if (viewsError) {
       console.error('❌ Error obteniendo views:', viewsError)
     }
@@ -426,6 +443,8 @@ export const getPostsInteractions = async (postIds, userId = null) => {
     views?.forEach(view => {
       viewsCount[view.post_id] = (viewsCount[view.post_id] || 0) + 1
     })
+
+    console.log('🔢 Contadores calculados:', { likesCount, viewsCount, upvotesCount, downvotesCount })
 
     upvotesData.data?.forEach(vote => {
       upvotesCount[vote.post_id] = (upvotesCount[vote.post_id] || 0) + 1
@@ -514,21 +533,24 @@ export const unlikePost = async (postId, userId) => {
 }
 
 // Registrar vista de un post
-export const addPostView = async (postId, userId = null, ipAddress = null, userAgent = null) => {
+export const addPostView = async (postId, userId = null) => {
   try {
+    console.log('🎯 addPostView llamada con:', { postId, userId })
+    
     const { data, error } = await supabase
       .from('post_views')
       .insert({
         post_id: postId,
-        user_id: userId,
-        ip_address: ipAddress,
-        user_agent: userAgent
+        user_id: userId
       })
       .select()
+
+    console.log('📊 Respuesta de Supabase:', { data, error })
 
     if (error) {
       // Si es error de duplicado (ya vio el post), no es problema
       if (error.code === '23505') {
+        console.log('ℹ️ Vista ya existía, todo OK')
         return { success: true, message: 'Vista ya registrada' }
       }
       
@@ -536,6 +558,7 @@ export const addPostView = async (postId, userId = null, ipAddress = null, userA
       return { success: false, error: error.message }
     }
 
+    console.log('✅ Vista registrada exitosamente:', data)
     return { success: true, data }
   } catch (error) {
     console.error('💥 Error en addPostView:', error)
@@ -809,58 +832,76 @@ export const createComment = async (commentData) => {
 // Votar en un post
 export const votePost = async (postId, userId, voteType) => {
   try {
-    console.log('🎯 votePost:', { postId, userId, voteType })
+    console.log('🎯 votePost iniciado:', { postId, userId, voteType })
 
     // Verificar si ya votó
-    const { data: existingVote } = await supabase
+    const { data: existingVote, error: selectError } = await supabase
       .from('post_votes')
       .select('vote_type')
       .eq('post_id', postId)
       .eq('user_id', userId)
       .single()
 
+    console.log('🔍 Verificación de voto existente:', { existingVote, selectError })
+
     if (existingVote) {
       if (existingVote.vote_type === voteType) {
         // Quitar voto (ya votó lo mismo)
+        console.log('🗑️ Eliminando voto existente...')
         const { error: deleteError } = await supabase
           .from('post_votes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', userId)
 
+        console.log('📊 Resultado eliminación:', { deleteError })
+
         if (deleteError) {
+          console.error('❌ Error eliminando voto:', deleteError)
           return { success: false, error: deleteError }
         }
 
+        console.log('✅ Voto eliminado exitosamente')
         return { success: true, action: 'removed', voteType }
       } else {
         // Cambiar voto
+        console.log('🔄 Cambiando voto existente...')
         const { error: updateError } = await supabase
           .from('post_votes')
           .update({ vote_type: voteType })
           .eq('post_id', postId)
           .eq('user_id', userId)
 
+        console.log('📊 Resultado actualización:', { updateError })
+
         if (updateError) {
+          console.error('❌ Error cambiando voto:', updateError)
           return { success: false, error: updateError }
         }
 
+        console.log('✅ Voto cambiado exitosamente')
         return { success: true, action: 'changed', voteType, previousVote: existingVote.vote_type }
       }
     } else {
       // Crear nuevo voto
-      const { error: insertError } = await supabase
+      console.log('➕ Creando nuevo voto...')
+      const { data: insertData, error: insertError } = await supabase
         .from('post_votes')
         .insert({
           post_id: postId,
           user_id: userId,
           vote_type: voteType
         })
+        .select()
+
+      console.log('📊 Resultado inserción:', { insertData, insertError })
 
       if (insertError) {
+        console.error('❌ Error creando voto:', insertError)
         return { success: false, error: insertError }
       }
 
+      console.log('✅ Nuevo voto creado exitosamente:', insertData)
       return { success: true, action: 'created', voteType }
     }
   } catch (error) {

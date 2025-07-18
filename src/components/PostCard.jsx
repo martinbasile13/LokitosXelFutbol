@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Avatar from './Avatar'
+import TeamBadge from './TeamBadge'
 import { useAuth } from '../context/AuthContext.jsx'
 import { votePost, addPostView, likePost, unlikePost } from '../services/postService'
 import { 
@@ -23,6 +24,32 @@ const PostCard = ({ post, onDelete }) => {
   const [isLiking, setIsLiking] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [postData, setPostData] = useState(post)
+  const [viewRegistered, setViewRegistered] = useState(false)
+
+  // Registrar vista automáticamente cuando el post aparece en el feed
+  useEffect(() => {
+    if (!viewRegistered && postData.id) {
+      const registerView = async () => {
+        try {
+          console.log('🎯 Registrando vista automática para post:', postData.id)
+          const result = await addPostView(postData.id, user?.id)
+          console.log('📊 Resultado del registro de vista:', result)
+          if (result.success) {
+            console.log('✅ Vista registrada exitosamente')
+            setViewRegistered(true)
+          } else {
+            console.error('❌ Error en registro de vista:', result.error)
+          }
+        } catch (error) {
+          console.error('💥 Error registrando vista automática:', error)
+        }
+      }
+      
+      // Pequeño delay para evitar spam
+      const timer = setTimeout(registerView, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [postData.id, user?.id, viewRegistered])
   
   const formatTime = (timestamp) => {
     const date = new Date(timestamp)
@@ -35,11 +62,7 @@ const PostCard = ({ post, onDelete }) => {
     return `${Math.floor(diffInMinutes / 1440)}d`
   }
 
-  const getTeamBadge = (experience) => {
-    if (experience > 1000) return '🏆'
-    if (experience > 500) return '⚽'
-    return '🔰'
-  }
+
 
   const truncateText = (text, maxLength) => {
     if (!text) return ''
@@ -260,28 +283,19 @@ const PostCard = ({ post, onDelete }) => {
     }
   }
 
-  const handlePostView = async () => {
-    if (user?.id && postData.user_id !== user.id) {
-      try {
-        await addPostView(postData.id, user.id)
-      } catch (error) {
-        console.error('Error registrando vista:', error)
-      }
-    }
-  }
-
   const handlePostClick = () => {
     console.log('🔗 Navegando al post:', postData.id)
-    handlePostView()
+    // La vista ya se registró automáticamente al renderizar el componente
   }
 
   return (
-    <Link 
-      to={`/post/${postData.id}`}
-      onClick={handlePostClick}
-      className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative cursor-pointer"
-    >
-      <div className="p-6">
+    <div className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
+      {/* Área clicable del post */}
+      <Link 
+        to={`/post/${postData.id}`}
+        onClick={handlePostClick}
+        className="block cursor-pointer p-6 pb-3"
+      >
         {/* Header */}
         <div className="flex items-start space-x-3">
           <Avatar 
@@ -297,7 +311,9 @@ const PostCard = ({ post, onDelete }) => {
               </h3>
               <span className="text-base-content/50">·</span>
               <span className="text-base-content/50 text-sm">{formatTime(postData.created_at)}</span>
-              <span className="text-sm">{getTeamBadge(postData.profiles?.experience_points || 0)}</span>
+              {postData.profiles?.team && (
+                <TeamBadge team={postData.profiles.team} size="sm" />
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-base-content/70 text-sm truncate max-w-[12ch] sm:max-w-[16ch] md:max-w-[24ch]" title={`@${postData.profiles?.username || 'usuario'}`}>
@@ -319,187 +335,201 @@ const PostCard = ({ post, onDelete }) => {
         <div className="mt-3">
           <p className="text-base-content leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{postData.content}</p>
         </div>
+      </Link>
 
-        {/* Acciones */}
-        <div className="flex items-center justify-between pt-3">
-          {/* Votaciones estilo Reddit */}
-          <div className="flex items-center space-x-2">
-            <button 
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-110 ${
-                postData.user_vote === 'up' 
-                  ? 'text-orange-500 bg-orange-50' 
-                  : 'text-base-content/60 hover:text-orange-500 hover:bg-orange-50'
-              }`}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                handleVote('up', e)
-              }}
-              disabled={isLoading}
-            >
-              <ChevronUp className="w-5 h-5" />
-              <span className="font-medium">{postData.upvotes || 0}</span>
-            </button>
-            <button 
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-110 ${
-                postData.user_vote === 'down' 
-                  ? 'text-blue-500 bg-blue-50' 
-                  : 'text-base-content/60 hover:text-blue-500 hover:bg-blue-50'
-              }`}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                handleVote('down', e)
-              }}
-              disabled={isLoading}
-            >
-              <ChevronDown className="w-5 h-5" />
-              <span className="font-medium">{postData.downvotes || 0}</span>
-            </button>
+      {/* Acciones - Fuera del Link */}
+      <div className="flex items-center justify-between px-6 pb-6">
+        {/* Votaciones estilo Reddit */}
+        <div className="flex items-center space-x-1">
+          <button 
+            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-200 hover:scale-110 ${
+              postData.user_vote === 'up' 
+                ? 'text-orange-500 bg-orange-50' 
+                : 'text-base-content/60 hover:text-orange-500 hover:bg-orange-50'
+            }`}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleVote('up', e)
+            }}
+            disabled={isLoading}
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+          
+          {/* Puntuación neta estilo Reddit */}
+          <div className={`px-2 py-1 rounded text-sm font-bold min-w-[3rem] text-center ${
+            postData.user_vote === 'up' 
+              ? 'text-orange-500' 
+              : postData.user_vote === 'down' 
+                ? 'text-blue-500' 
+                : 'text-base-content/70'
+          }`}>
+            {(postData.upvotes || 0) - (postData.downvotes || 0)}
+          </div>
+          
+          <button 
+            className={`flex items-center justify-center w-8 h-8 rounded-md transition-all duration-200 hover:scale-110 ${
+              postData.user_vote === 'down' 
+                ? 'text-blue-500 bg-blue-50' 
+                : 'text-base-content/60 hover:text-blue-500 hover:bg-blue-50'
+            }`}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleVote('down', e)
+            }}
+            disabled={isLoading}
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Otras acciones */}
+        <div className="flex items-center space-x-4">
+          {/* Comentarios */}
+          <div className="flex items-center space-x-2 text-base-content/60">
+            <MessageCircle className="w-5 h-5" />
+            <span className="text-sm">{postData.comments_count || 0}</span>
           </div>
 
-          {/* Otras acciones */}
-          <div className="flex items-center space-x-4">
-            {/* Comentarios */}
-            <div className="flex items-center space-x-2 text-base-content/60">
-              <MessageCircle className="w-5 h-5" />
-              <span className="text-sm">{postData.comments_count || 0}</span>
-            </div>
+          {/* Likes */}
+          <button 
+            className={`flex items-center space-x-2 transition-all duration-200 hover:scale-110 ${
+              postData.user_liked 
+                ? 'text-red-500' 
+                : 'text-base-content/60 hover:text-red-500'
+            }`}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleLike(e)
+            }}
+            disabled={isLiking}
+          >
+            <Heart className={`w-5 h-5 ${postData.user_liked ? 'fill-current animate-pulse' : ''}`} />
+            <span className="text-sm">{postData.likes_count || 0}</span>
+          </button>
 
-            {/* Likes */}
-            <button 
-              className={`flex items-center space-x-2 transition-all duration-200 hover:scale-110 ${
-                postData.user_liked 
-                  ? 'text-red-500' 
-                  : 'text-base-content/60 hover:text-red-500'
-              }`}
+          {/* Views */}
+          <div className="flex items-center space-x-2 text-base-content/60">
+            <ChartNoAxesColumn className="w-5 h-5" />
+            <span className="text-sm">{postData.views_count || 0}</span>
+          </div>
+
+          {/* Dropdown - Ahora completamente independiente */}
+          <div 
+            className="dropdown dropdown-end"
+            onClick={(e) => {
+              e.stopPropagation()
+            }}
+          >
+            <div 
+              tabIndex={0} 
+              role="button" 
+              className="btn btn-ghost btn-circle btn-sm hover:scale-110 transition-transform duration-200"
               onClick={(e) => {
-                e.preventDefault()
                 e.stopPropagation()
-                handleLike(e)
               }}
-              disabled={isLiking}
             >
-              <Heart className={`w-5 h-5 ${postData.user_liked ? 'fill-current animate-pulse' : ''}`} />
-              <span className="text-sm">{postData.likes_count || 0}</span>
-            </button>
-
-            {/* Views */}
-            <div className="flex items-center space-x-2 text-base-content/60">
-              <ChartNoAxesColumn className="w-5 h-5" />
-              <span className="text-sm">{postData.views_count || 0}</span>
+              <MoreHorizontal className="w-5 h-5" />
             </div>
-
-            {/* Dropdown - Completamente independiente */}
-            <div className="dropdown dropdown-end">
-              <div 
-                tabIndex={0} 
-                role="button" 
-                className="btn btn-ghost btn-circle btn-sm hover:scale-110 transition-transform duration-200"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </div>
-              <ul tabIndex={0} className="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow border border-base-300">
-                {/* Copiar enlace */}
-                <li>
-                  <button 
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleCopyLink()
-                    }}
-                    className="flex items-center gap-2 w-full text-left"
-                  >
-                    📋 Copiar enlace
-                  </button>
-                </li>
-                
-                {isOwner ? (
-                  /* Opciones del propietario */
-                  <>
-                    <li>
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleEdit()
-                        }}
-                        className="flex items-center gap-2 w-full text-left"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Editar post
-                      </button>
-                    </li>
-                    <li>
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleDelete()
-                        }}
-                        disabled={isDeleting}
-                        className={`flex items-center gap-2 w-full text-left text-error hover:bg-error hover:text-error-content ${isDeleting ? 'pointer-events-none opacity-50' : ''}`}
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Eliminando...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="w-4 h-4" />
-                            Eliminar post
-                          </>
-                        )}
-                      </button>
-                    </li>
-                  </>
-                ) : (
-                  /* Opciones para otros usuarios */
-                  <>
-                    <li>
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleFollow()
-                        }}
-                        className="flex items-center gap-2 w-full text-left"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        Seguir a @{truncateText(postData.profiles?.username || 'usuario', 12)}
-                      </button>
-                    </li>
-                    <li>
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleReport()
-                        }}
-                        className="flex items-center gap-2 w-full text-left text-warning"
-                      >
-                        <Flag className="w-4 h-4" />
-                        Reportar post
-                      </button>
-                    </li>
-                  </>
-                )}
-              </ul>
-            </div>
+            <ul tabIndex={0} className="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow border border-base-300">
+              {/* Copiar enlace */}
+              <li>
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleCopyLink()
+                  }}
+                  className="flex items-center gap-2 w-full text-left"
+                >
+                  📋 Copiar enlace
+                </button>
+              </li>
+              
+              {isOwner ? (
+                /* Opciones del propietario */
+                <>
+                  <li>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleEdit()
+                      }}
+                      className="flex items-center gap-2 w-full text-left"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Editar post
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleDelete()
+                      }}
+                      disabled={isDeleting}
+                      className={`flex items-center gap-2 w-full text-left text-error hover:bg-error hover:text-error-content ${isDeleting ? 'pointer-events-none opacity-50' : ''}`}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Eliminando...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Eliminar post
+                        </>
+                      )}
+                    </button>
+                  </li>
+                </>
+              ) : (
+                /* Opciones para otros usuarios */
+                <>
+                  <li>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleFollow()
+                      }}
+                      className="flex items-center gap-2 w-full text-left"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Seguir a @{truncateText(postData.profiles?.username || 'usuario', 12)}
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleReport()
+                      }}
+                      className="flex items-center gap-2 w-full text-left text-warning"
+                    >
+                      <Flag className="w-4 h-4" />
+                      Reportar post
+                    </button>
+                  </li>
+                </>
+              )}
+            </ul>
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
 

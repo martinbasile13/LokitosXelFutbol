@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar'
 import Sidebar from '../components/Sidebar'
 import RightPanel from '../components/RightPanel'
+import ViewsDebugger from '../components/ViewsDebugger'
+import VotesDebugger from '../components/VotesDebugger'
+import TeamBadge from '../components/TeamBadge'
 import { 
   getPostById, 
   getPostComments, 
@@ -12,7 +15,8 @@ import {
   voteComment,
   likePost,
   unlikePost,
-  deletePost 
+  deletePost,
+  addPostView
 } from '../services/postService'
 import { 
   ChevronUp, 
@@ -45,7 +49,6 @@ const CommentComponent = ({
   userProfile, 
   truncateText, 
   formatTime, 
-  getTeamBadge, 
   user 
 }) => {
   return (
@@ -73,14 +76,8 @@ const CommentComponent = ({
               {truncateText(comment.profiles?.username || 'Usuario', 10)}
             </span>
             <span className="text-xs text-base-content/50">{formatTime(comment.created_at)}</span>
-            <span className="text-xs">{getTeamBadge(comment.profiles?.experience_points || 0)}</span>
             {comment.profiles?.team && (
-              <>
-                <span className="text-base-content/50">·</span>
-                <span className="text-base-content/60 text-xs truncate max-w-[12ch] sm:max-w-[16ch] md:max-w-[24ch]" title={comment.profiles.team}>
-                  {truncateText(comment.profiles.team, 16)}
-                </span>
-              </>
+              <TeamBadge team={comment.profiles.team} size="xs" />
             )}
           </div>
 
@@ -214,7 +211,6 @@ const CommentComponent = ({
                   userProfile={userProfile}
                   truncateText={truncateText}
                   formatTime={formatTime}
-                  getTeamBadge={getTeamBadge}
                   user={user}
                 />
               ))}
@@ -258,6 +254,14 @@ const PostDetail = () => {
 
       if (postResult.success) {
         setPost(postResult.data)
+        
+        // Registrar vista del post al cargarlo
+        try {
+          await addPostView(postId, user?.id)
+          console.log('✅ Vista registrada en PostDetail:', postId)
+        } catch (error) {
+          console.error('❌ Error registrando vista en PostDetail:', error)
+        }
       } else {
         console.error('Error cargando post:', postResult.error)
         setPost(null)
@@ -293,11 +297,7 @@ const PostDetail = () => {
     return `${Math.floor(diffInMinutes / 1440)}d`
   }
 
-  const getTeamBadge = (experience) => {
-    if (experience > 1000) return '🏆'
-    if (experience > 500) return '⚽'
-    return '🔰'
-  }
+
 
   // Funciones para el dropdown del post
   const handleCopyLink = () => {
@@ -697,7 +697,9 @@ const PostDetail = () => {
                         </h3>
                         <span className="text-base-content/50">·</span>
                         <span className="text-base-content/50 text-sm">{formatTime(post.created_at)}</span>
-                        <span className="text-sm">{getTeamBadge(post.profiles?.experience_points || 0)}</span>
+                        {post.profiles?.team && (
+                          <TeamBadge team={post.profiles.team} size="sm" />
+                        )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-base-content/70 text-sm truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[32ch]" title={`@${post.profiles?.username || 'usuario'}`}>
@@ -719,6 +721,12 @@ const PostDetail = () => {
                   <div className="mb-6">
                     <p className="text-lg leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{post.content}</p>
                   </div>
+
+                  {/* Debug Views - TEMPORAL */}
+                  <ViewsDebugger postId={postId} />
+
+                  {/* Debug Votes - TEMPORAL */}
+                  <VotesDebugger />
 
                   {/* Estadísticas */}
                   <div className="flex items-center space-x-6 py-3 border-y border-base-300">
@@ -937,7 +945,6 @@ const PostDetail = () => {
                           userProfile={userProfile}
                           truncateText={truncateText}
                           formatTime={formatTime}
-                          getTeamBadge={getTeamBadge}
                           user={user}
                         />
                       ))}

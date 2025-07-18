@@ -245,7 +245,7 @@ const ParaTi = () => {
                         
                         {/* Botón para emoji */}
                         <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors">
-                          <span className="text-lg">😀</span>
+                          <span className="text-lg"></span>
                         </button>
                       </div>
 
