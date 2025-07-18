@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { supabase, getCurrentUser } from '../services/supabaseClient'
 import { getUserProfile } from '../services/userService'
 
@@ -16,13 +16,26 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  
+  // Caché simple para velocidad - evitar llamadas repetidas
+  const profileCacheRef = useRef(new Map())
 
-  // Función para obtener el perfil completo del usuario
+  // Función para obtener el perfil completo del usuario con caché
   const fetchUserProfile = async (userId) => {
     if (!userId) return null
     
+    // Verificar caché primero - velocidad instantánea
+    if (profileCacheRef.current.has(userId)) {
+      console.log('⚡ Perfil desde caché (instantáneo):', userId)
+      return profileCacheRef.current.get(userId)
+    }
+    
     try {
       const profile = await getUserProfile(userId)
+      // Guardar en caché para próximas veces
+      if (profile) {
+        profileCacheRef.current.set(userId, profile)
+      }
       return profile
     } catch (error) {
       console.error('Error obteniendo perfil:', error)
@@ -31,11 +44,11 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    // Timeout de seguridad para Chrome - si no termina en 5s, forzar setLoading(false)
+    // Timeout de seguridad para Chrome - optimizado a 2s para velocidad
     const emergencyTimeout = setTimeout(() => {
       console.warn('🚨 AuthContext: Emergency timeout - forcing loading = false')
       setLoading(false)
-    }, 5000)
+    }, 2000)
 
     // Obtener usuario inicial
     const getInitialUser = async () => {
@@ -44,10 +57,10 @@ export const AuthProvider = ({ children }) => {
         setUser(currentUser)
         
         if (currentUser?.id) {
-          // Timeout específico para getUserProfile en Chrome
+          // Timeout específico para getUserProfile en Chrome - optimizado a 1s
           const profilePromise = fetchUserProfile(currentUser.id)
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Chrome timeout')), 3000)
+            setTimeout(() => reject(new Error('Chrome timeout')), 1000)
           )
           
           try {
@@ -84,10 +97,10 @@ export const AuthProvider = ({ children }) => {
           if (session?.user) {
             setUser(session.user)
             
-            // Timeout también para el listener en Chrome
+            // Timeout también para el listener en Chrome - optimizado a 1s
             const profilePromise = fetchUserProfile(session.user.id)
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Chrome listener timeout')), 3000)
+              setTimeout(() => reject(new Error('Chrome listener timeout')), 1000)
             )
             
             try {
@@ -124,6 +137,8 @@ export const AuthProvider = ({ children }) => {
     loading,
     refreshUserProfile: async () => {
       if (user?.id) {
+        // Limpiar caché para forzar actualización
+        profileCacheRef.current.delete(user.id)
         const profile = await fetchUserProfile(user.id)
         setUserProfile(profile)
         return profile
