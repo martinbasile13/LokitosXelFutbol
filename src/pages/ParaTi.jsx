@@ -6,6 +6,12 @@ import RightPanel from '../components/RightPanel'
 import Avatar from '../components/Avatar'
 import { validateFile } from '../services/mediaService'
 import { getFeedPosts, createPost, deletePost } from '../services/postService'
+import { 
+  Camera, 
+  Video, 
+  X, 
+  Loader2 
+} from 'lucide-react'
 
 const ParaTi = () => {
   const { user, userProfile } = useAuth()
@@ -17,13 +23,15 @@ const ParaTi = () => {
   const [loadingPosts, setLoadingPosts] = useState(true)
 
   useEffect(() => {
-    loadPosts()
-  }, [])
+    if (user?.id) {
+      loadPosts()
+    }
+  }, [user?.id])
 
   const loadPosts = async () => {
     try {
       setLoadingPosts(true)
-      const feedPosts = await getFeedPosts(20)
+      const feedPosts = await getFeedPosts(20, 0, user?.id)
       console.log('Posts cargados:', feedPosts)
       setPosts(feedPosts)
     } catch (error) {
@@ -88,8 +96,8 @@ const ParaTi = () => {
       console.log('Resultado del post:', result)
       
       if (result.success) {
-        // Agregar el nuevo post al inicio de la lista
-        setPosts(prev => [result.data, ...prev])
+        // Recargar posts para obtener contadores actualizados
+        await loadPosts()
         
         // Limpiar formulario
         setNewPost('')
@@ -120,8 +128,8 @@ const ParaTi = () => {
       const result = await deletePost(postId, user.id)
       
       if (result.success) {
-        // Remover el post de la lista
-        setPosts(prev => prev.filter(post => post.id !== postId))
+        // Recargar posts para obtener contadores actualizados
+        await loadPosts()
         alert('Post eliminado exitosamente')
       } else {
         console.error('Error eliminando post:', result.error)
@@ -184,9 +192,9 @@ const ParaTi = () => {
                         />
                         <button 
                           onClick={() => setSelectedImage(null)}
-                          className="absolute top-2 right-2 btn btn-circle btn-sm btn-error"
+                          className="absolute top-2 right-2 btn btn-circle btn-sm btn-error hover:scale-110 transition-transform"
                         >
-                          ✕
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     )}
@@ -201,9 +209,9 @@ const ParaTi = () => {
                         />
                         <button 
                           onClick={() => setSelectedVideo(null)}
-                          className="absolute top-2 right-2 btn btn-circle btn-sm btn-error"
+                          className="absolute top-2 right-2 btn btn-circle btn-sm btn-error hover:scale-110 transition-transform"
                         >
-                          ✕
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     )}
@@ -212,8 +220,8 @@ const ParaTi = () => {
                     <div className="flex items-center justify-between mt-4">
                       <div className="flex space-x-2">
                         {/* Botón para imagen */}
-                        <label className="btn btn-ghost btn-circle btn-sm">
-                          <span className="text-lg">🖼️</span>
+                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors group">
+                          <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
                           <input
                             type="file"
                             accept="image/*"
@@ -223,8 +231,8 @@ const ParaTi = () => {
                         </label>
                         
                         {/* Botón para video */}
-                        <label className="btn btn-ghost btn-circle btn-sm">
-                          <span className="text-lg">🎥</span>
+                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors group">
+                          <Video className="w-5 h-5 group-hover:scale-110 transition-transform" />
                           <input
                             type="file"
                             accept="video/*"
@@ -234,7 +242,7 @@ const ParaTi = () => {
                         </label>
                         
                         {/* Botón para emoji */}
-                        <button className="btn btn-ghost btn-circle btn-sm">
+                        <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors">
                           <span className="text-lg">😀</span>
                         </button>
                       </div>
@@ -247,10 +255,10 @@ const ParaTi = () => {
                         <button
                           onClick={handleCreatePost}
                           disabled={(!newPost.trim() && !selectedImage && !selectedVideo) || isPosting}
-                          className="btn btn-primary btn-sm rounded-full"
+                          className="btn btn-primary btn-sm rounded-full hover:scale-105 transition-transform"
                         >
                           {isPosting ? (
-                            <span className="loading loading-spinner loading-sm"></span>
+                            <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             'Opinar'
                           )}
@@ -265,7 +273,7 @@ const ParaTi = () => {
               <div className="pb-20">
                 {loadingPosts ? (
                   <div className="p-8 text-center">
-                    <span className="loading loading-spinner loading-md"></span>
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
                     <p className="mt-2 text-base-content/70">Cargando posts...</p>
                   </div>
                 ) : posts.length === 0 ? (
@@ -280,14 +288,15 @@ const ParaTi = () => {
                     </div>
                   </div>
                 ) : (
-                  posts.map((post) => (
-                    <PostCard 
-                      key={post.id} 
-                      post={post} 
-                      currentUser={user}
-                      onDelete={handleDeletePost}
-                    />
-                  ))
+                  <div className="space-y-4">
+                    {posts.map((post) => (
+                      <PostCard 
+                        key={post.id} 
+                        post={post}
+                        onDelete={handleDeletePost} 
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

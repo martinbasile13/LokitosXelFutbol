@@ -1,5 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { 
+  MoreHorizontal, 
+  User, 
+  Settings, 
+  LogOut 
+} from 'lucide-react'
 
 const Navbar = () => {
   const location = useLocation()
@@ -40,17 +46,28 @@ const Navbar = () => {
 
       <div className="navbar-end">
         <div className="dropdown dropdown-end">
-          <div tabIndex={0} role="button" className="btn btn-ghost">
-            <span className="text-lg">⋯</span>
+          <div tabIndex={0} role="button" className="btn btn-ghost hover:bg-base-200 transition-colors group">
+            <MoreHorizontal className="w-5 h-5 group-hover:scale-110 transition-transform" />
           </div>
-          <ul tabIndex={0} className="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
+          <ul tabIndex={0} className="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow border border-base-300">
             <li>
-              <Link to="/perfil">
+              <Link to="/perfil" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
                 Perfil
               </Link>
             </li>
-            <li><a>Configuración</a></li>
-            <li><button onClick={handleSignOut}>Cerrar Sesión</button></li>
+            <li>
+              <a className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Configuración
+              </a>
+            </li>
+            <li>
+              <button onClick={handleSignOut} className="flex items-center gap-2 text-error hover:bg-error hover:text-error-content">
+                <LogOut className="w-4 h-4" />
+                Cerrar Sesión
+              </button>
+            </li>
           </ul>
         </div>
       </div>

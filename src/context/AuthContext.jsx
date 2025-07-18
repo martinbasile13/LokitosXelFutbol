@@ -34,8 +34,8 @@ export const AuthProvider = ({ children }) => {
     // Obtener usuario inicial
     const getInitialUser = async () => {
       try {
-        const currentUser = await getCurrentUser()
-        setUser(currentUser)
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
         
         if (currentUser?.id) {
           const profile = await fetchUserProfile(currentUser.id)
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Error obteniendo usuario inicial:', error)
       } finally {
-        setLoading(false)
+      setLoading(false)
       }
     }
     
@@ -84,11 +84,11 @@ export const AuthProvider = ({ children }) => {
     },
     signIn: async (email, password) => {
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        })
-        return { data, error }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      return { data, error }
       } catch (error) {
         console.error('Error en signIn:', error)
         return { data: null, error }
@@ -96,14 +96,14 @@ export const AuthProvider = ({ children }) => {
     },
     signUp: async (email, password, userData) => {
       try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: userData
-          }
-        })
-        return { data, error }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData
+        }
+      })
+      return { data, error }
       } catch (error) {
         console.error('Error en signUp:', error)
         return { data: null, error }
@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
     },
     signOut: async () => {
       try {
-        const { error } = await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut()
         if (!error) {
           setUser(null)
           setUserProfile(null)
@@ -119,7 +119,7 @@ export const AuthProvider = ({ children }) => {
         return { error }
       } catch (error) {
         console.error('Error en signOut:', error)
-        return { error }
+      return { error }
       }
     }
   }

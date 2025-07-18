@@ -3,6 +3,14 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { getSuggestedUsers, followUser, getUserStats, updateUserProfileWithAvatar } from '../services/userService'
 import { validateFile, getReadableFileSize } from '../services/mediaService'
 import Avatar from './Avatar'
+import { 
+  Edit, 
+  TrendingUp, 
+  UserPlus, 
+  Loader2,
+  Upload,
+  X
+} from 'lucide-react'
 
 const RightPanel = () => {
   const { user, userProfile, refreshUserProfile } = useAuth()
@@ -262,9 +270,10 @@ const RightPanel = () => {
           <div className="mt-3">
             <button 
               onClick={openEditModal}
-              className="btn btn-outline btn-sm w-full"
+              className="btn btn-outline btn-sm w-full hover:scale-105 transition-transform"
             >
-              ✏️ Editar perfil
+              <Edit className="w-4 h-4" />
+              Editar perfil
             </button>
           </div>
         </div>
@@ -276,12 +285,12 @@ const RightPanel = () => {
           <h3 className="card-title text-base mb-3">Tendencias en fútbol</h3>
           <div className="space-y-2">
             {trendingTopics.map((trend, index) => (
-              <div key={index} className="flex justify-between items-center hover:bg-base-300 p-2 rounded cursor-pointer">
-                <div>
-                  <p className="font-semibold text-sm text-primary">{trend.topic}</p>
+              <div key={index} className="flex justify-between items-center hover:bg-base-300 p-2 rounded cursor-pointer transition-all duration-200 group">
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-primary group-hover:text-primary-focus">{trend.topic}</p>
                   <p className="text-xs text-base-content/70">{trend.posts} posts</p>
                 </div>
-                <span className="text-lg">📈</span>
+                <TrendingUp className="w-5 h-5 text-success group-hover:scale-110 transition-transform" />
               </div>
             ))}
           </div>
@@ -328,14 +337,17 @@ const RightPanel = () => {
                     </div>
                   </div>
                   <button 
-                    className="btn btn-primary btn-xs"
+                    className="btn btn-primary btn-xs hover:scale-105 transition-transform"
                     onClick={() => handleFollowUser(suggestedUser.id)}
                     disabled={followingStates[suggestedUser.id]}
                   >
                     {followingStates[suggestedUser.id] ? (
-                      <span className="loading loading-spinner loading-xs"></span>
+                      <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                      'Seguir'
+                      <>
+                        <UserPlus className="w-3 h-3" />
+                        Seguir
+                      </>
                     )}
                   </button>
                 </div>

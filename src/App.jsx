@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
 import Navbar from './components/Navbar'
 import ParaTi from './pages/ParaTi'
+import PostDetail from './pages/PostDetail'
 import Auth from './pages/Auth'
 import './Styles/index.css'
 
@@ -85,6 +86,7 @@ function App() {
                   
                   {/* Rutas principales */}
                   <Route path="/para-ti" element={<ParaTi />} />
+                  <Route path="/post/:postId" element={<PostDetail />} />
                   <Route path="/partidos" element={<Partidos />} />
                   
                   {/* Rutas de navegación */}
