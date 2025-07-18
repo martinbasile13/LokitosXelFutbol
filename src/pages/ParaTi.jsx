@@ -290,7 +290,7 @@ const ParaTi = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="">
                     {posts.map((post) => (
                       <PostCard 
                         key={post.id} 

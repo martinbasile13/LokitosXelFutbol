@@ -276,8 +276,8 @@ const PostCard = ({ post, onDelete }) => {
   }
 
   return (
-    <div className="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow duration-200 relative">
-      <div className="card-body">
+    <div className="bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
+      <div className="p-6">
         {/* Header */}
         <div className="flex items-start space-x-3">
           <Avatar 
