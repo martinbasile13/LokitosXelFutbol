@@ -43,7 +43,11 @@ const Avatar = ({
 
   return (
     <div className={`avatar ${onClick ? 'cursor-pointer' : ''} ${className}`} onClick={onClick}>
-      <div className={`${sizeConfig.container} rounded-full overflow-hidden ring ring-primary ring-offset-base-100 ring-offset-1 relative bg-primary flex items-center justify-center`}>
+      <div className={`${sizeConfig.container} rounded-full overflow-hidden relative flex items-center justify-center ${
+        hasValidSrc && showImage 
+          ? 'bg-base-200' 
+          : 'bg-gradient-to-br from-blue-400 to-blue-600'
+      }`}>
         {/* Imagen */}
         {hasValidSrc && showImage && (
           <img 
@@ -56,7 +60,7 @@ const Avatar = ({
         
         {/* Inicial cuando no hay imagen o falla */}
         {(!hasValidSrc || !showImage) && (
-          <span className={`${sizeConfig.text} font-bold text-white`}>
+          <span className={`${sizeConfig.text} font-bold text-white select-none`}>
             {getInitial()}
           </span>
         )}
@@ -65,4 +69,4 @@ const Avatar = ({
   )
 }
 
-export default Avatar 
+export default Avatar

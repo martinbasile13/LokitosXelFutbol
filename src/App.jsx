@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
-import Navbar from './components/Navbar'
 import ParaTi from './pages/ParaTi'
 import PostDetail from './pages/PostDetail'
 import Auth from './pages/Auth'
@@ -79,7 +78,6 @@ function App() {
             {/* Rutas protegidas */}
             <Route path="/*" element={
               <ProtectedRoute>
-                <Navbar />
                 <Routes>
                   {/* Redirigir raíz a Para Ti */}
                   <Route path="/" element={<Navigate to="/para-ti" replace />} />

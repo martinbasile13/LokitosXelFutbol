@@ -11,7 +11,8 @@ import {
   UserPlus, 
   Loader2,
   Upload,
-  X
+  X,
+  Search
 } from 'lucide-react'
 
 const RightPanel = () => {
@@ -32,12 +33,10 @@ const RightPanel = () => {
   const [isUpdating, setIsUpdating] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
-  const trendingTopics = [
-    { topic: '#SeleccionArgentina', posts: '12.5K' },
-    { topic: '#Messi', posts: '8.3K' },
-    { topic: '#RiverPlate', posts: '5.7K' },
-    { topic: '#Boca', posts: '4.9K' },
-    { topic: '#Mundial2026', posts: '3.2K' },
+  const trends = [
+    { topic: '#Boca', posts: '45.2K posts' },
+    { topic: '#River', posts: '38.7K posts' },
+    { topic: '#PrimeraDivisión', posts: '25.1K posts' },
   ]
 
   useEffect(() => {
@@ -50,7 +49,7 @@ const RightPanel = () => {
   const loadSuggestedUsers = async () => {
     try {
       setLoadingUsers(true)
-      const users = await getSuggestedUsers(user.id, 3)
+      const users = await getSuggestedUsers(user.id, 2) // Cambiar de 3 a 2 usuarios
       setSuggestedUsers(users)
     } catch (error) {
       console.error('Error cargando usuarios sugeridos:', error)
@@ -220,347 +219,355 @@ const RightPanel = () => {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      
-      {/* Perfil del usuario */}
-      <div className="card bg-base-200 shadow-sm">
-        <div className="card-body p-4">
-          <h3 className="card-title text-base mb-3">Tu Perfil</h3>
-          <div className="flex items-center space-x-3">
-            <Avatar 
-              src={getAvatarUrl(userProfile) || user?.user_metadata?.avatar_url}
-              alt={`Avatar de ${userProfile?.username || 'Usuario'}`}
-              name={userProfile?.username || 'Usuario'}
-              size="md"
-            />
-            <div className="flex-1">
-              <h4 className="font-bold text-sm">
-                {userProfile?.username || user?.user_metadata?.username || 'Usuario'}
-              </h4>
-              <p className="text-xs text-base-content/70">
-                @{userProfile?.username || user?.user_metadata?.username || 'usuario'}
-              </p>
-              <div className="mt-1">
-                {userProfile?.team ? (
-                  <TeamBadge team={userProfile.team} size="sm" showName={true} />
-                ) : (
-                  <span className="text-xs text-base-content/70">Sin equipo</span>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            <div className="text-center">
-              <div className="font-bold text-sm">{userStats.posts}</div>
-              <div className="text-xs text-base-content/70">Posts</div>
-            </div>
-            <div className="text-center">
-              <div className="font-bold text-sm">{userStats.followers}</div>
-              <div className="text-xs text-base-content/70">Seguidores</div>
-            </div>
-            <div className="text-center">
-              <div className="font-bold text-sm">{userStats.following}</div>
-              <div className="text-xs text-base-content/70">Siguiendo</div>
-            </div>
-          </div>
-          
-          {/* Botón para editar perfil */}
-          <div className="mt-3">
-            <button 
-              onClick={openEditModal}
-              className="btn btn-outline btn-sm w-full hover:scale-105 transition-transform"
-            >
-              <Edit className="w-4 h-4" />
-              Editar perfil
-            </button>
-          </div>
+    <div className="sticky top-0 h-screen overflow-y-auto">
+      <div className="p-2 space-y-4">
+        
+        {/* Barra de búsqueda estilo Twitter */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-base-content/50" />
+          <input
+            type="text"
+            placeholder="Buscar"
+            className="w-full bg-base-200 rounded-full py-3 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:bg-base-100 transition-all duration-200"
+            readOnly
+          />
         </div>
-      </div>
 
-      {/* Tendencias */}
-      <div className="card bg-base-200 shadow-sm">
-        <div className="card-body p-4">
-          <h3 className="card-title text-base mb-3">Tendencias en fútbol</h3>
-          <div className="space-y-2">
-            {trendingTopics.map((trend, index) => (
-              <div key={index} className="flex justify-between items-center hover:bg-base-300 p-2 rounded cursor-pointer transition-all duration-200 group">
+        {/* Perfil del usuario actual - estilo Twitter Premium */}
+        {user && userProfile && (
+          <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">Tu Perfil</h2>
+              
+              <div className="flex items-center space-x-4 mb-4">
+                <Avatar 
+                  src={userProfile?.avatar_url}
+                  alt={userProfile?.username || 'Usuario'}
+                  name={userProfile?.username || 'Usuario'}
+                  size="xl"
+                />
                 <div className="flex-1">
-                  <p className="font-semibold text-sm text-primary group-hover:text-primary-focus">{trend.topic}</p>
-                  <p className="text-xs text-base-content/70">{trend.posts} posts</p>
+                  <h3 className="font-bold text-xl">{getDisplayName(userProfile)}</h3>
+                  <p className="text-base-content/60 text-sm">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
+                  {userProfile?.team && (
+                    <div className="flex items-center space-x-2 mt-2">
+                      <TeamBadge team={userProfile.team} size="sm" />
+                      <span className="text-sm text-base-content/70">
+                        {userProfile.team}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <TrendingUp className="w-5 h-5 text-success group-hover:scale-110 transition-transform" />
               </div>
-            ))}
+              
+              {/* Estadísticas del usuario */}
+              <div className="flex justify-between text-center mb-4">
+                <div>
+                  <div className="font-bold text-xl">{userStats.posts}</div>
+                  <div className="text-base-content/70 text-sm">Posts</div>
+                </div>
+                <div>
+                  <div className="font-bold text-xl">{userStats.followers}</div>
+                  <div className="text-base-content/70 text-sm">Seguidores</div>
+                </div>
+                <div>
+                  <div className="font-bold text-xl">{userStats.following}</div>
+                  <div className="text-base-content/70 text-sm">Siguiendo</div>
+                </div>
+              </div>
+              
+              {/* Botón de editar perfil */}
+              <button 
+                onClick={openEditModal}
+                className="btn btn-outline btn-sm rounded-full w-full"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Editar perfil
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* What's happening - Tendencias estilo Twitter */}
+        <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
+          <div className="p-4">
+            <h2 className="text-xl font-bold mb-4">Tendencias en fútbol</h2>
+            <div className="space-y-3">
+              {trends.map((trend, index) => (
+                <div key={index} className="cursor-pointer hover:bg-base-200/50 p-2 -m-2 rounded-lg transition-colors group">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-xs text-base-content/60 mb-1">Tendencia en Argentina</p>
+                      <p className="font-bold text-lg text-primary">{trend.topic}</p>
+                      <p className="text-xs text-base-content/60">{trend.posts}</p>
+                    </div>
+                    <div className="text-base-content/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <button className="text-primary hover:underline text-sm">
+                Mostrar más
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Sugerencias de usuarios - Ahora funcional */}
-      <div className="card bg-base-200 shadow-sm">
-        <div className="card-body p-4">
-          <h3 className="card-title text-base mb-3">A quién seguir</h3>
-          
-          {loadingUsers ? (
-            <div className="text-center p-4">
-              <span className="loading loading-spinner loading-sm"></span>
-              <p className="text-xs mt-2">Cargando usuarios...</p>
-            </div>
-          ) : suggestedUsers.length === 0 ? (
-            <div className="text-center p-4">
-              <p className="text-xs text-base-content/70">
-                No hay usuarios sugeridos disponibles
-              </p>
-            </div>
-          ) : (
+        {/* Who to follow - A quién seguir estilo Twitter */}
+        <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
+          <div className="p-4">
+            <h2 className="text-xl font-bold mb-4">A quién seguir</h2>
             <div className="space-y-3">
-              {suggestedUsers.map((suggestedUser) => (
-                <div key={suggestedUser.id} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Avatar 
-                      src={getAvatarUrl(suggestedUser)}
-                      alt={`Avatar de ${suggestedUser.username}`}
-                      name={suggestedUser.username}
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-xs truncate">
-                        {getDisplayName(suggestedUser)}
-                      </p>
-                      <p className="text-xs text-base-content/70 truncate">
-                        @{suggestedUser.username}
-                      </p>
-                      <div className="text-xs">
-                        {suggestedUser.team ? (
-                          <TeamBadge team={suggestedUser.team} size="xs" showName={true} />
-                        ) : (
-                          <span className="text-base-content/70">Sin equipo</span>
+              {loadingUsers ? (
+                <div className="py-4 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                </div>
+              ) : suggestedUsers.length > 0 ? (
+                suggestedUsers.map((suggestedUser) => (
+                  <div key={suggestedUser.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <Avatar 
+                        src={suggestedUser.avatar_url}
+                        alt={suggestedUser.username || 'Usuario'}
+                        name={suggestedUser.username || 'Usuario'}
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate">{suggestedUser.username}</p>
+                        <p className="text-xs text-base-content/60 truncate">@{suggestedUser.username?.toLowerCase()}</p>
+                        {suggestedUser.team && (
+                          <div className="flex items-center space-x-1 mt-1">
+                            <TeamBadge team={suggestedUser.team} size="xs" />
+                            <span className="text-xs text-base-content/60 truncate">{suggestedUser.team}</span>
+                          </div>
                         )}
                       </div>
                     </div>
+                    <button 
+                      onClick={() => handleFollowUser(suggestedUser.id)}
+                      disabled={followingStates[suggestedUser.id]}
+                      className="btn btn-sm rounded-full bg-white text-black hover:bg-gray-200 border-gray-300 ml-3"
+                    >
+                      Seguir
+                    </button>
                   </div>
+                ))
+              ) : (
+                <div className="py-4 text-center text-base-content/60">
+                  <UserPlus className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No hay usuarios sugeridos</p>
+                </div>
+              )}
+              <button className="text-primary hover:underline text-sm">
+                Mostrar más
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal de edición de perfil */}
+        {showEditModal && (
+          <dialog className="modal modal-open">
+            <div className="modal-box">
+              <form method="dialog" onSubmit={handleUpdateProfile}>
+                {/* Botón de cerrar */}
+                <button 
+                  type="button"
+                  className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+                  onClick={closeEditModal}
+                >
+                  ✕
+                </button>
+                
+                {/* Título */}
+                <h3 className="font-bold text-lg mb-4">Editar Perfil</h3>
+                
+                {/* Formulario */}
+                <div className="space-y-4">
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">Nombre de usuario</span>
+                    </label>
+                    <input 
+                      type="text"
+                      className="input input-bordered w-full"
+                      value={editFormData.username}
+                      onChange={(e) => setEditFormData(prev => ({
+                        ...prev,
+                        username: e.target.value
+                      }))}
+                      placeholder="Ingresa tu nombre de usuario"
+                      required
+                      disabled={isUpdating}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt text-base-content/70">
+                        Tu nombre de usuario será visible para otros usuarios
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">Equipo favorito</span>
+                    </label>
+                    <select 
+                      className="select select-bordered w-full"
+                      value={editFormData.team || ''}
+                      onChange={(e) => setEditFormData(prev => ({
+                        ...prev,
+                        team: e.target.value
+                      }))}
+                      disabled={isUpdating}
+                    >
+                      <option value="">-- Selecciona tu equipo --</option>
+                      {EQUIPOS_PRIMERA.map((equipo) => (
+                        <option key={equipo.archivo} value={equipo.nombre}>
+                          {equipo.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {/* Vista previa del escudo seleccionado */}
+                    {editFormData.team && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <TeamBadge team={editFormData.team} size="sm" />
+                        <span className="text-sm text-base-content/70">
+                          Vista previa del escudo
+                        </span>
+                      </div>
+                    )}
+                    
+                    <label className="label">
+                      <span className="label-text-alt text-base-content/70">
+                        Selecciona tu equipo de Primera División
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">Foto de perfil</span>
+                    </label>
+                    
+                    {/* Vista previa del avatar actual o seleccionado */}
+                    <div className="flex items-center space-x-4 mb-3">
+                      <Avatar 
+                        src={avatarPreview}
+                        alt="Avatar actual"
+                        name={userProfile?.username || 'Usuario'}
+                        size="lg"
+                      />
+                      <div className="flex-1">
+                        {avatarFile ? (
+                          <div>
+                            <p className="text-sm font-medium text-success">
+                              📎 {avatarFile.name}
+                            </p>
+                            <p className="text-xs text-base-content/70">
+                              {getReadableFileSize(avatarFile.size)}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-base-content/70">
+                            {userProfile?.avatar_url ? 'Foto actual' : 'Sin foto de perfil'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Input de archivo */}
+                    <div className="flex space-x-2">
+                      <label className="btn btn-outline btn-sm flex-1">
+                        📷 Seleccionar foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarFileChange}
+                          className="hidden"
+                          disabled={isUpdating}
+                        />
+                      </label>
+                      
+                      {avatarFile && (
+                        <button
+                          type="button"
+                          onClick={removeAvatarPreview}
+                          className="btn btn-ghost btn-sm"
+                          disabled={isUpdating}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    
+                    <label className="label">
+                      <span className="label-text-alt text-base-content/70">
+                        Formatos: JPEG, PNG, GIF, WebP. Máximo 5MB
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Barra de progreso durante la subida */}
+                  {isUpdating && avatarFile && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text-alt">Subiendo imagen...</span>
+                        <span className="label-text-alt">{uploadProgress}%</span>
+                      </label>
+                      <progress 
+                        className="progress progress-primary w-full" 
+                        value={uploadProgress} 
+                        max="100"
+                      ></progress>
+                    </div>
+                  )}
+
+                  {/* Información sobre Storage */}
+                  <div className="alert alert-info">
+                    <span className="text-sm">
+                      💡 <strong>Seguro:</strong> Tus imágenes se guardan de forma segura en nuestro servidor. Puedes cambiarla cuando quieras.
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Botones de acción */}
+                <div className="modal-action">
                   <button 
-                    className="btn btn-primary btn-xs hover:scale-105 transition-transform"
-                    onClick={() => handleFollowUser(suggestedUser.id)}
-                    disabled={followingStates[suggestedUser.id]}
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={closeEditModal}
                   >
-                    {followingStates[suggestedUser.id] ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Actualizando...
+                      </>
                     ) : (
                       <>
-                        <UserPlus className="w-3 h-3" />
-                        Seguir
+                        <Upload className="w-4 h-4 mr-2" />
+                        Actualizar perfil
                       </>
                     )}
                   </button>
                 </div>
-              ))}
+              </form>
             </div>
-          )}
-        </div>
+          </dialog>
+        )}
       </div>
-
-      {/* Modal de edición de perfil */}
-      {showEditModal && (
-        <dialog className="modal modal-open">
-          <div className="modal-box">
-            <form method="dialog" onSubmit={handleUpdateProfile}>
-              {/* Botón de cerrar */}
-              <button 
-                type="button"
-                className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-                onClick={closeEditModal}
-              >
-                ✕
-              </button>
-              
-              {/* Título */}
-              <h3 className="font-bold text-lg mb-4">Editar Perfil</h3>
-              
-              {/* Formulario */}
-              <div className="space-y-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Nombre de usuario</span>
-                  </label>
-                  <input 
-                    type="text"
-                    className="input input-bordered w-full"
-                    value={editFormData.username}
-                    onChange={(e) => setEditFormData(prev => ({
-                      ...prev,
-                      username: e.target.value
-                    }))}
-                    placeholder="Ingresa tu nombre de usuario"
-                    required
-                    disabled={isUpdating}
-                  />
-                  <label className="label">
-                    <span className="label-text-alt text-base-content/70">
-                      Tu nombre de usuario será visible para otros usuarios
-                    </span>
-                  </label>
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Equipo favorito</span>
-                  </label>
-                  <select 
-                    className="select select-bordered w-full"
-                    value={editFormData.team || ''}
-                    onChange={(e) => setEditFormData(prev => ({
-                      ...prev,
-                      team: e.target.value
-                    }))}
-                    disabled={isUpdating}
-                  >
-                    <option value="">-- Selecciona tu equipo --</option>
-                    {EQUIPOS_PRIMERA.map((equipo) => (
-                      <option key={equipo.archivo} value={equipo.nombre}>
-                        {equipo.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  
-                  {/* Vista previa del escudo seleccionado */}
-                  {editFormData.team && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <TeamBadge team={editFormData.team} size="sm" />
-                      <span className="text-sm text-base-content/70">
-                        Vista previa del escudo
-                      </span>
-                    </div>
-                  )}
-                  
-                  <label className="label">
-                    <span className="label-text-alt text-base-content/70">
-                      Selecciona tu equipo de Primera División
-                    </span>
-                  </label>
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Foto de perfil</span>
-                  </label>
-                  
-                  {/* Vista previa del avatar actual o seleccionado */}
-                  <div className="flex items-center space-x-4 mb-3">
-                    <Avatar 
-                      src={avatarPreview}
-                      alt="Avatar actual"
-                      name={userProfile?.username || 'Usuario'}
-                      size="lg"
-                    />
-                    <div className="flex-1">
-                      {avatarFile ? (
-                        <div>
-                          <p className="text-sm font-medium text-success">
-                            📎 {avatarFile.name}
-                          </p>
-                          <p className="text-xs text-base-content/70">
-                            {getReadableFileSize(avatarFile.size)}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-base-content/70">
-                          {userProfile?.avatar_url ? 'Foto actual' : 'Sin foto de perfil'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Input de archivo */}
-                  <div className="flex space-x-2">
-                    <label className="btn btn-outline btn-sm flex-1">
-                      📷 Seleccionar foto
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarFileChange}
-                        className="hidden"
-                        disabled={isUpdating}
-                      />
-                    </label>
-                    
-                    {avatarFile && (
-                      <button
-                        type="button"
-                        onClick={removeAvatarPreview}
-                        className="btn btn-ghost btn-sm"
-                        disabled={isUpdating}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  
-                  <label className="label">
-                    <span className="label-text-alt text-base-content/70">
-                      Formatos: JPEG, PNG, GIF, WebP. Máximo 5MB
-                    </span>
-                  </label>
-                </div>
-
-                {/* Barra de progreso durante la subida */}
-                {isUpdating && avatarFile && (
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text-alt">Subiendo imagen...</span>
-                      <span className="label-text-alt">{uploadProgress}%</span>
-                    </label>
-                    <progress 
-                      className="progress progress-primary w-full" 
-                      value={uploadProgress} 
-                      max="100"
-                    ></progress>
-                  </div>
-                )}
-
-                {/* Información sobre Storage */}
-                <div className="alert alert-info">
-                  <span className="text-sm">
-                    💡 <strong>Seguro:</strong> Tus imágenes se guardan de forma segura en nuestro servidor. Puedes cambiarla cuando quieras.
-                  </span>
-                </div>
-              </div>
-              
-              {/* Botones de acción */}
-              <div className="modal-action">
-                <button 
-                  type="button" 
-                  className="btn btn-ghost"
-                  onClick={closeEditModal}
-                  disabled={isUpdating}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary"
-                  disabled={isUpdating || !editFormData.username.trim()}
-                >
-                  {isUpdating ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm"></span>
-                      Guardando...
-                    </>
-                  ) : (
-                    'Guardar cambios'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-          <form method="dialog" className="modal-backdrop" onClick={closeEditModal}>
-            <button type="button">close</button>
-          </form>
-        </dialog>
-      )}
-
     </div>
   )
 }
 
-export default RightPanel 
+export default RightPanel

@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from '../components/Avatar'
 import Sidebar from '../components/Sidebar'
 import RightPanel from '../components/RightPanel'
-import ViewsDebugger from '../components/ViewsDebugger'
-import VotesDebugger from '../components/VotesDebugger'
 import TeamBadge from '../components/TeamBadge'
 import { 
   getPostById, 
@@ -722,11 +720,35 @@ const PostDetail = () => {
                     <p className="text-lg leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{post.content}</p>
                   </div>
 
-                  {/* Debug Views - TEMPORAL */}
-                  <ViewsDebugger postId={postId} />
-
-                  {/* Debug Votes - TEMPORAL */}
-                  <VotesDebugger />
+                  {/* Imágenes y videos del post */}
+                  {(post.image_url || post.video_url) && (
+                    <div className="mb-6">
+                      {post.image_url && (
+                        <div className="relative group">
+                          <img 
+                            src={post.image_url}
+                            alt="Imagen del post"
+                            className="w-full rounded-xl border border-base-300 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+                            onClick={() => window.open(post.image_url, '_blank')}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 rounded-xl pointer-events-none"></div>
+                        </div>
+                      )}
+                      
+                      {post.video_url && (
+                        <div className="relative">
+                          <video 
+                            src={post.video_url}
+                            controls
+                            className="w-full rounded-xl border border-base-300"
+                            preload="metadata"
+                          >
+                            Tu navegador no soporta el elemento de video.
+                          </video>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Estadísticas */}
                   <div className="flex items-center space-x-6 py-3 border-y border-base-300">
@@ -967,4 +989,4 @@ const PostDetail = () => {
   )
 }
 
-export default PostDetail 
+export default PostDetail
