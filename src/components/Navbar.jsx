@@ -37,9 +37,13 @@ const Navbar = () => {
           </Link>
           <Link 
             to="/para-ti" 
-            className={`tab ${location.pathname === '/para-ti' || location.pathname === '/' ? 'tab-active' : ''}`}
+            className={`tab relative ${location.pathname === '/para-ti' || location.pathname === '/' ? 'tab-active' : ''}`}
           >
             Para Ti
+            {/* Indicador azul cuando está activo */}
+            {(location.pathname === '/para-ti' || location.pathname === '/') && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-b-lg"></div>
+            )}
           </Link>
         </div>
       </div>
@@ -75,4 +79,4 @@ const Navbar = () => {
   )
 }
 
-export default Navbar 
+export default Navbar

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import PostCard from '../components/PostCard'
 import Sidebar from '../components/Sidebar'
@@ -23,6 +23,8 @@ const ParaTi = () => {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isPosting, setIsPosting] = useState(false)
   const [loadingPosts, setLoadingPosts] = useState(true)
+  const [isComposerFocused, setIsComposerFocused] = useState(false)
+  const textareaRef = useRef(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -158,6 +160,25 @@ const ParaTi = () => {
   const progressPercentage = Math.min((newPost.length / 400) * 100, 100)
   const isOverLimit = newPost.length > 400
 
+  const handleComposerFocus = () => {
+    setIsComposerFocused(true)
+  }
+
+  const handleComposerBlur = () => {
+    // Solo ocultar si no hay contenido ni archivo seleccionado
+    if (!newPost.trim() && !selectedFile) {
+      setIsComposerFocused(false)
+    }
+  }
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+    }
+  }, [newPost])
+
   return (
     <div className="min-h-screen bg-base-100">
       <div className="container mx-auto max-w-7xl">
@@ -174,13 +195,12 @@ const ParaTi = () => {
           <div className="col-span-1 lg:col-span-6">
             <div className="min-h-screen border-x border-base-300">
               
-              {/* Header */}
-              <div className="sticky top-16 bg-base-100/80 backdrop-blur border-b border-base-300 p-4 z-10">
-                <h1 className="text-xl font-bold">Para Ti</h1>
-              </div>
-
               {/* Formulario para crear post */}
-              <div className="border-b border-base-300 p-4">
+              <div className={`border-b border-base-300 transition-all duration-300 ${
+                isComposerFocused 
+                  ? 'p-6 bg-base-100 sticky top-16 z-20 shadow-lg border-l-4 border-l-primary' 
+                  : 'p-4'
+              }`}>
                 <div className="flex space-x-3">
                   <Avatar 
                     src={userProfile?.avatar_url || user?.user_metadata?.avatar_url}
@@ -192,26 +212,41 @@ const ParaTi = () => {
                   
                   <div className="flex-1 min-w-0">
                     <textarea
+                      ref={textareaRef}
                       value={newPost}
                       onChange={(e) => setNewPost(e.target.value)}
+                      onFocus={handleComposerFocus}
+                      onBlur={handleComposerBlur}
                       placeholder="¿Qué está pasando en el fútbol?"
-                      className="textarea textarea-ghost w-full min-h-24 text-lg resize-none focus:outline-none"
+                      className={`textarea textarea-ghost w-full text-lg resize-none focus:outline-none overflow-hidden transition-all duration-200 ${
+                        isComposerFocused 
+                          ? 'min-h-32 text-xl placeholder:text-base-content/40' 
+                          : 'min-h-24'
+                      }`}
+                      style={{ 
+                        minHeight: isComposerFocused ? '128px' : '96px',
+                        maxHeight: isComposerFocused ? '400px' : '200px'
+                      }}
                     />
                     
                     {/* Preview de archivo */}
                     {previewUrl && (
-                      <div className="mt-3 relative">
+                      <div className="mt-4 relative">
                         {selectedFile?.type.startsWith('image') ? (
                           <img 
                             src={previewUrl} 
                             alt="Preview" 
-                            className="max-h-48 w-full object-cover rounded-lg border border-base-300"
+                            className={`w-full object-cover rounded-xl border border-base-300 transition-all duration-300 ${
+                              isComposerFocused ? 'max-h-80' : 'max-h-48'
+                            }`}
                           />
                         ) : (
                           <video 
                             src={previewUrl} 
                             controls 
-                            className="max-h-48 w-full rounded-lg border border-base-300"
+                            className={`w-full rounded-xl border border-base-300 transition-all duration-300 ${
+                              isComposerFocused ? 'max-h-80' : 'max-h-48'
+                            }`}
                           />
                         )}
                         <button 
@@ -219,7 +254,7 @@ const ParaTi = () => {
                             setSelectedFile(null)
                             setPreviewUrl(null)
                           }}
-                          className="absolute top-2 right-2 btn btn-circle btn-sm bg-black/50 hover:bg-black/70 border-none text-white"
+                          className="absolute top-3 right-3 btn btn-circle btn-sm bg-black/60 hover:bg-black/80 border-none text-white backdrop-blur-sm"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -227,10 +262,12 @@ const ParaTi = () => {
                     )}
 
                     {/* Opciones y botón de post */}
-                    <div className="flex items-center justify-between mt-4">
+                    <div className={`flex items-center justify-between transition-all duration-300 ${
+                      isComposerFocused ? 'mt-6' : 'mt-4'
+                    }`}>
                       <div className="flex space-x-2">
                         {/* Botón para imagen */}
-                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors group">
+                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors group">
                           <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
                           <input
                             type="file"
@@ -241,7 +278,7 @@ const ParaTi = () => {
                         </label>
                         
                         {/* Botón para video */}
-                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors group">
+                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors group">
                           <Video className="w-5 h-5 group-hover:scale-110 transition-transform" />
                           <input
                             type="file"
@@ -250,6 +287,17 @@ const ParaTi = () => {
                             className="hidden"
                           />
                         </label>
+
+                        {/* Mostrar caracteres restantes cuando está focused */}
+                        {isComposerFocused && (
+                          <div className="flex items-center ml-4 text-sm text-base-content/60">
+                            {newPost.length > 320 && (
+                              <span className={`${isOverLimit ? 'text-error' : 'text-warning'}`}>
+                                {400 - newPost.length} caracteres restantes
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center space-x-4">
@@ -294,7 +342,9 @@ const ParaTi = () => {
                         <button
                           onClick={handleCreatePost}
                           disabled={(!newPost.trim() && !selectedFile) || isPosting || isOverLimit}
-                          className="btn btn-primary btn-sm rounded-full hover:scale-105 transition-transform disabled:opacity-50"
+                          className={`btn btn-primary btn-sm rounded-full hover:scale-105 transition-all duration-300 disabled:opacity-50 ${
+                            isComposerFocused ? 'btn-md px-6' : ''
+                          }`}
                         >
                           {isPosting ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -304,12 +354,34 @@ const ParaTi = () => {
                         </button>
                       </div>
                     </div>
+
+                    {/* Botones adicionales cuando está focused */}
+                    {isComposerFocused && (
+                      <div className="mt-4 pt-4 border-t border-base-300 flex justify-between items-center">
+                        <div className="text-sm text-base-content/60">
+                          <span>Todos pueden responder</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!newPost.trim() && !selectedFile) {
+                              setIsComposerFocused(false)
+                              textareaRef.current?.blur()
+                            }
+                          }}
+                          className="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content"
+                        >
+                          Minimizar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Feed de posts */}
-              <div className="pb-20">
+              <div className={`pb-20 transition-all duration-300 ${
+                isComposerFocused ? 'mt-4' : ''
+              }`}>
                 {loadingPosts ? (
                   <div className="p-8 text-center">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
