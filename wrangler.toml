@@ -1,0 +1,14 @@
+name = "lokitos-worker"
+main = "worker.js"
+compatibility_date = "2025-07-18"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "lokitos-videos"
+preview_bucket_name = "lokitos-videos"
+
+[vars]
+R2_BUCKET_NAME = "lokitos-videos"
+
+[dev]
+port = 8787

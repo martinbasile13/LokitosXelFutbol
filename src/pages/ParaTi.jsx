@@ -13,14 +13,14 @@ import {
   Loader2 
 } from 'lucide-react'
 
-
+const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT || 'https://falling-boat-f7d7.basiledev-oficial.workers.dev/upload';
 
 const ParaTi = () => {
   const { user, userProfile } = useAuth()
   const [posts, setPosts] = useState([])
   const [newPost, setNewPost] = useState('')
-  const [selectedImage, setSelectedImage] = useState(null)
-  const [selectedVideo, setSelectedVideo] = useState(null)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
   const [isPosting, setIsPosting] = useState(false)
   const [loadingPosts, setLoadingPosts] = useState(true)
 
@@ -43,34 +43,38 @@ const ParaTi = () => {
     }
   }
 
-  const handleImageSelect = (e) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files[0]
     if (file) {
-      const validation = validateFile(file, 'image')
+      const validation = validateFile(file, file.type.startsWith('video') ? 'video' : 'image')
       if (validation.valid) {
-        setSelectedImage(file)
-        setSelectedVideo(null)
+        setSelectedFile(file)
+        setPreviewUrl(URL.createObjectURL(file))
       } else {
         alert(validation.error)
       }
     }
   }
 
-  const handleVideoSelect = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      const validation = validateFile(file, 'video')
-      if (validation.valid) {
-        setSelectedVideo(file)
-        setSelectedImage(null)
-      } else {
-        alert(validation.error)
-      }
+  const uploadFileToWorker = async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch(UPLOAD_ENDPOINT, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error('Error subiendo archivo')
     }
+
+    const data = await response.json()
+    return data.url
   }
 
   const handleCreatePost = async () => {
-    if (!newPost.trim() && !selectedImage && !selectedVideo) {
+    if (!newPost.trim() && !selectedFile) {
       alert('Escribe algo o selecciona una imagen/video')
       return
     }
@@ -83,14 +87,21 @@ const ParaTi = () => {
     setIsPosting(true)
 
     try {
-      // Por ahora creamos el post solo con texto
-      // TODO: Implementar subida de imagen/video a Cloudflare
+      let mediaUrl = null
+      let mediaType = null
+
+      // Subir archivo si está seleccionado
+      if (selectedFile) {
+        mediaUrl = await uploadFileToWorker(selectedFile)
+        mediaType = selectedFile.type.startsWith('video') ? 'video' : 'image'
+      }
+
       const postData = {
         user_id: user.id,
         content: newPost,
-        title: '', // Por ahora sin título
-        image_url: null, // TODO: URL de Cloudflare
-        video_url: null  // TODO: URL de Cloudflare
+        title: '',
+        image_url: mediaType === 'image' ? mediaUrl : null,
+        video_url: mediaType === 'video' ? mediaUrl : null,
       }
 
       console.log('Creando post con datos:', postData)
@@ -103,8 +114,8 @@ const ParaTi = () => {
         
         // Limpiar formulario
         setNewPost('')
-        setSelectedImage(null)
-        setSelectedVideo(null)
+        setSelectedFile(null)
+        setPreviewUrl(null)
         
         alert('¡Post creado exitosamente!')
       } else {
@@ -142,6 +153,10 @@ const ParaTi = () => {
       alert('Error al eliminar el post')
     }
   }
+
+  // Calcular el progreso del círculo (0-100)
+  const progressPercentage = Math.min((newPost.length / 400) * 100, 100)
+  const isOverLimit = newPost.length > 400
 
   return (
     <div className="min-h-screen bg-base-100">
@@ -181,37 +196,30 @@ const ParaTi = () => {
                       onChange={(e) => setNewPost(e.target.value)}
                       placeholder="¿Qué está pasando en el fútbol?"
                       className="textarea textarea-ghost w-full min-h-24 text-lg resize-none focus:outline-none"
-                      maxLength={280}
                     />
                     
-                    {/* Preview de imagen */}
-                    {selectedImage && (
-                      <div className="mt-2 relative">
-                        <img 
-                          src={URL.createObjectURL(selectedImage)} 
-                          alt="Preview" 
-                          className="max-h-48 w-full object-cover rounded-lg"
-                        />
+                    {/* Preview de archivo */}
+                    {previewUrl && (
+                      <div className="mt-3 relative">
+                        {selectedFile?.type.startsWith('image') ? (
+                          <img 
+                            src={previewUrl} 
+                            alt="Preview" 
+                            className="max-h-48 w-full object-cover rounded-lg border border-base-300"
+                          />
+                        ) : (
+                          <video 
+                            src={previewUrl} 
+                            controls 
+                            className="max-h-48 w-full rounded-lg border border-base-300"
+                          />
+                        )}
                         <button 
-                          onClick={() => setSelectedImage(null)}
-                          className="absolute top-2 right-2 btn btn-circle btn-sm btn-error hover:scale-110 transition-transform"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Preview de video */}
-                    {selectedVideo && (
-                      <div className="mt-2 relative">
-                        <video 
-                          src={URL.createObjectURL(selectedVideo)} 
-                          controls 
-                          className="max-h-48 w-full rounded-lg"
-                        />
-                        <button 
-                          onClick={() => setSelectedVideo(null)}
-                          className="absolute top-2 right-2 btn btn-circle btn-sm btn-error hover:scale-110 transition-transform"
+                          onClick={() => {
+                            setSelectedFile(null)
+                            setPreviewUrl(null)
+                          }}
+                          className="absolute top-2 right-2 btn btn-circle btn-sm bg-black/50 hover:bg-black/70 border-none text-white"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -227,7 +235,7 @@ const ParaTi = () => {
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={handleImageSelect}
+                            onChange={handleFileSelect}
                             className="hidden"
                           />
                         </label>
@@ -238,26 +246,55 @@ const ParaTi = () => {
                           <input
                             type="file"
                             accept="video/*"
-                            onChange={handleVideoSelect}
+                            onChange={handleFileSelect}
                             className="hidden"
                           />
                         </label>
-                        
-                        {/* Botón para emoji */}
-                        <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors">
-                          <span className="text-lg"></span>
-                        </button>
                       </div>
 
                       <div className="flex items-center space-x-4">
-                        <span className={`text-sm ${newPost.length > 260 ? 'text-error' : 'text-base-content/70'}`}>
-                          {280 - newPost.length}
-                        </span>
+                        {/* Círculo de progreso */}
+                        <div className="relative w-8 h-8">
+                          <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 32 32">
+                            {/* Círculo de fondo */}
+                            <circle
+                              cx="16"
+                              cy="16"
+                              r="14"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              fill="none"
+                              className="text-base-300"
+                            />
+                            {/* Círculo de progreso */}
+                            <circle
+                              cx="16"
+                              cy="16"
+                              r="14"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              fill="none"
+                              strokeDasharray={`${2 * Math.PI * 14}`}
+                              strokeDashoffset={`${2 * Math.PI * 14 * (1 - progressPercentage / 100)}`}
+                              className={`transition-all duration-300 ${
+                                isOverLimit ? 'text-error' : progressPercentage > 80 ? 'text-warning' : 'text-primary'
+                              }`}
+                            />
+                          </svg>
+                          {/* Número en el centro si está cerca del límite */}
+                          {progressPercentage > 80 && (
+                            <div className={`absolute inset-0 flex items-center justify-center text-xs font-bold ${
+                              isOverLimit ? 'text-error' : 'text-warning'
+                            }`}>
+                              {400 - newPost.length}
+                            </div>
+                          )}
+                        </div>
                         
                         <button
                           onClick={handleCreatePost}
-                          disabled={(!newPost.trim() && !selectedImage && !selectedVideo) || isPosting}
-                          className="btn btn-primary btn-sm rounded-full hover:scale-105 transition-transform"
+                          disabled={(!newPost.trim() && !selectedFile) || isPosting || isOverLimit}
+                          className="btn btn-primary btn-sm rounded-full hover:scale-105 transition-transform disabled:opacity-50"
                         >
                           {isPosting ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -337,4 +374,4 @@ const ParaTi = () => {
   )
 }
 
-export default ParaTi 
+export default ParaTi

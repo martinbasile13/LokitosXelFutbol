@@ -334,6 +334,36 @@ const PostCard = ({ post, onDelete }) => {
         {/* Contenido del post */}
         <div className="mt-3">
           <p className="text-base-content leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{postData.content}</p>
+          {/* Mostrar imagen si existe */}
+          {postData.image_url && (
+            <div className="mt-3">
+              <img 
+                src={postData.image_url} 
+                alt="Imagen del post" 
+                className="max-h-96 w-full object-cover rounded-lg border border-base-300"
+                onError={(e) => {
+                  console.error('Error cargando imagen:', postData.image_url);
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+          {/* Mostrar video si existe */}
+          {postData.video_url && (
+            <div className="mt-3">
+              <video 
+                src={postData.video_url} 
+                controls 
+                className="max-h-96 w-full rounded-lg border border-base-300"
+                onError={(e) => {
+                  console.error('Error cargando video:', postData.video_url);
+                  e.target.style.display = 'none';
+                }}
+              >
+                Tu navegador no soporta el elemento video.
+              </video>
+            </div>
+          )}
         </div>
       </Link>
 
@@ -533,4 +563,4 @@ const PostCard = ({ post, onDelete }) => {
   )
 }
 
-export default PostCard 
+export default PostCard
