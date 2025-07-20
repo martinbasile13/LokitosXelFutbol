@@ -5,6 +5,7 @@ import { validateFile, getReadableFileSize } from '../services/mediaService'
 import { EQUIPOS_PRIMERA } from '../data/equipos'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
+import SearchBox from './SearchBox'
 import { 
   Edit, 
   TrendingUp, 
@@ -224,15 +225,7 @@ const RightPanel = () => {
       <div className="p-2 space-y-4">
         
         {/* Barra de búsqueda estilo Twitter */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-base-content/50" />
-          <input
-            type="text"
-            placeholder="Buscar"
-            className="w-full bg-base-200 rounded-full py-3 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:bg-base-100 transition-all duration-200"
-            readOnly
-          />
-        </div>
+        <SearchBox />
 
         {/* Perfil del usuario actual - DISEÑO HORIZONTAL COMO LA IMAGEN */}
         {user && userProfile && (

@@ -167,9 +167,8 @@ const UserProfile = () => {
 
             {/* Header con imagen de fondo */}
             <div className="relative">
-              {/* Imagen de fondo del header */}
-              <div className="h-32 md:h-48 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 relative overflow-hidden">
-                {/* Mostrar imagen de portada si existe */}
+              {/* Imagen de fondo del header - "portada" */}
+              <div className="h-52 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 relative overflow-hidden">
                 {userProfile?.cover_image_url ? (
                   <img 
                     src={userProfile.cover_image_url} 
@@ -185,9 +184,9 @@ const UserProfile = () => {
                 )}
               </div>
 
-              {/* Avatar posicionado sobre el header */}
-              <div className="absolute -bottom-12 left-4">
-                <div className="w-24 h-24 md:w-32 md:h-32 border-4 border-base-100 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+              {/* Avatar circular superpuesto - CENTRADO Y MÁS GRANDE */}
+              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+                <div className="w-29 h-29 border-4 border-base-100 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                   {userProfile?.avatar_url ? (
                     <img 
                       src={userProfile.avatar_url} 
@@ -195,21 +194,18 @@ const UserProfile = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-2xl md:text-4xl font-bold text-white">
+                    <span className="text-2xl font-bold text-white">
                       {(userProfile?.username || 'Usuario').charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
               </div>
-            </div>
 
-            {/* Información del perfil */}
-            <div className="px-4 pt-16 pb-4">
               {/* Botones de acción */}
-              <div className="flex justify-end space-x-2 mb-4">
+              <div className="absolute bottom-4 right-4 flex space-x-2">
                 {/* Dropdown más opciones */}
                 <div className="dropdown dropdown-end">
-                  <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-sm">
+                  <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-sm bg-base-100/80 backdrop-blur-sm border border-base-300">
                     <MoreHorizontal className="w-4 h-4" />
                   </div>
                   <ul tabIndex={0} className="dropdown-content menu bg-base-100 rounded-box z-[1] w-48 p-2 shadow border border-base-300">
@@ -229,53 +225,81 @@ const UserProfile = () => {
                 <button 
                   onClick={handleFollowToggle}
                   disabled={isFollowLoading}
-                  className={`btn btn-sm rounded-full px-6 ${
+                  className={`btn btn-sm rounded-full px-4 ${
                     isFollowingUser 
-                      ? 'btn-outline hover:btn-error hover:text-error-content' 
+                      ? 'btn-outline hover:btn-error hover:text-error-content bg-base-100/80 backdrop-blur-sm' 
                       : 'btn-primary'
                   }`}
                 >
                   {isFollowLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3 h-3 animate-spin" />
                   ) : isFollowingUser ? (
                     <>
-                      <UserMinus className="w-4 h-4 mr-1" />
+                      <UserMinus className="w-3 h-3 mr-1" />
                       <span className="hidden group-hover:inline">Dejar de seguir</span>
                       <span className="group-hover:hidden">Siguiendo</span>
                     </>
                   ) : (
                     <>
-                      <UserPlus className="w-4 h-4 mr-1" />
+                      <UserPlus className="w-3 h-3 mr-1" />
                       Seguir
                     </>
                   )}
                 </button>
               </div>
+            </div>
 
-              {/* Nombre y verificación */}
-              <div className="mb-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <h2 className="text-2xl font-bold">{userProfile?.username || 'Usuario'}</h2>
-                  {/* Badge de verificación */}
-                  <div className="flex items-center space-x-1 bg-primary/10 px-2 py-1 rounded-full">
-                    <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
+            {/* Información del perfil - Layout compacto con flex */}
+            <div className="px-4 pt-14 pb-4">
+              {/* Contenedor principal con flex */}
+              <div className="flex justify-between items-start">
+                {/* Lado izquierdo: Info del usuario */}
+                <div className="flex-1 min-w-0">
+                  {/* Nombre del usuario - MÁS GRANDE */}
+                  <h2 className="text-2xl font-bold text-base-content mb-1">
+                    {userProfile?.username || 'Usuario'}
+                  </h2>
+                  <p className="text-base text-base-content/70 mb-1">
+                    @{userProfile?.username || 'usuario'}
+                  </p>
+                  
+                  {/* Escudo del equipo - MÁS GRANDE */}
+                  {userProfile?.team && userProfile.team !== 'Sin Equipo' && (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <TeamBadge team={userProfile.team} size="lg" />
+                      <span className="text-lg font-medium text-primary">
+                        {userProfile.team}
+                      </span>
                     </div>
-                    <span className="text-xs text-primary font-medium">Verificado</span>
-                  </div>
+                  )}
                 </div>
-                <p className="text-base-content/60">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
+
+                {/* Lado derecho: Website */}
+                <div className="flex flex-col items-end space-y-1 ml-4">
+                  {/* Website si existe - URL COMPLETA */}
+                  {userProfile?.website && (
+                    <a 
+                      href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline text-sm flex items-center space-x-1 max-w-40"
+                    >
+                      <span>🔗</span>
+                      <span className="truncate">{userProfile.website}</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
-              {/* Bio del usuario - Solo mostrar si existe */}
+              {/* Bio/Descripción - Caja separada - Solo mostrar si existe */}
               {userProfile?.bio && (
-                <div className="mt-4">
-                  <p className="text-base-content/80 leading-relaxed">{userProfile.bio}</p>
+                <div className="mt-4 p-3 bg-base-200 rounded-lg border">
+                  <p className="text-base-content/90 text-sm leading-relaxed">{userProfile.bio}</p>
                 </div>
               )}
 
-              {/* Ubicación y fecha */}
-              <div className="flex items-center space-x-4 mb-4 text-sm text-base-content/60">
+              {/* Ubicación y fecha de unión - Compacto */}
+              <div className="mt-4 flex flex-wrap gap-4 text-sm text-base-content/70">
                 {userProfile?.location && (
                   <div className="flex items-center space-x-1">
                     <MapPin className="w-4 h-4" />
@@ -296,40 +320,25 @@ const UserProfile = () => {
                 </div>
               </div>
 
-              {/* Sitio web */}
-              {userProfile?.website && (
-                <div className="mb-4">
-                  <a 
-                    href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline text-sm flex items-center space-x-1"
-                  >
-                    <LinkIcon className="w-4 h-4" />
-                    <span>{userProfile.website}</span>
-                  </a>
-                </div>
-              )}
-
-              {/* Equipo favorito */}
-              {userProfile?.team && userProfile.team !== 'Sin Equipo' && (
-                <div className="flex items-center space-x-2 mb-4">
-                  <TeamBadge team={userProfile.team} size="sm" />
-                  <span className="text-sm text-primary font-medium">
-                    {userProfile.team}
+              {/* Estadísticas estilo Twitter - NUEVA SECCIÓN */}
+              <div className="mt-6 flex items-center space-x-6 py-3 border-t border-base-300">
+                <div className="flex items-center space-x-1">
+                  <span className="font-bold text-lg">{userStats.followers}</span>
+                  <span className="text-base-content/70 text-sm">
+                    <strong>Seguidores</strong>
                   </span>
                 </div>
-              )}
-
-              {/* Estadísticas de seguidores */}
-              <div className="flex items-center space-x-6 mb-6">
                 <div className="flex items-center space-x-1">
-                  <span className="font-bold text-base-content">{userStats.following}</span>
-                  <span className="text-base-content/60">Siguiendo</span>
+                  <span className="font-bold text-lg">{userStats.following}</span>
+                  <span className="text-base-content/70 text-sm">
+                    <strong>Siguiendo</strong>
+                  </span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <span className="font-bold text-base-content">{userStats.followers}</span>
-                  <span className="text-base-content/60">Seguidores</span>
+                  <span className="font-bold text-lg">{userStats.posts}</span>
+                  <span className="text-base-content/70 text-sm">
+                    <strong>Posts</strong>
+                  </span>
                 </div>
               </div>
             </div>

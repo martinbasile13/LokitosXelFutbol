@@ -38,14 +38,48 @@ const ParaTi = () => {
   }
 
   const handlePostCreated = async (newPost) => {
-    // Recargar posts para obtener contadores actualizados
-    await loadPosts()
+    // Agregar el nuevo post al principio de la lista con contadores inicializados
+    setPosts(prevPosts => [newPost, ...prevPosts])
     setShowPostModal(false)
   }
 
+  const handleVoteUpdate = (postId, voteData) => {
+    // Actualizar el post específico con los nuevos datos de votos
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? {
+              ...post,
+              upvotes: voteData.upvotes || post.upvotes,
+              downvotes: voteData.downvotes || post.downvotes,
+              upvotes_count: voteData.upvotes || post.upvotes_count,
+              downvotes_count: voteData.downvotes || post.downvotes_count,
+              user_vote: voteData.user_vote
+            }
+          : post
+      )
+    )
+  }
+
+  const handleViewUpdate = (postId, newViewCount) => {
+    // Actualizar el contador de vistas del post específico
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? {
+              ...post,
+              views_count: newViewCount
+            }
+          : post
+      )
+    )
+  }
+
   const handleDeletePost = async (postId) => {
+    console.log('🗑️ Eliminando post:', postId)
+    
     if (!user?.id) {
-      alert('Debes estar autenticado para eliminar posts')
+      window.showErrorAlert('Debes estar autenticado para eliminar posts')
       return
     }
 
@@ -53,16 +87,16 @@ const ParaTi = () => {
       const result = await deletePost(postId, user.id)
       
       if (result.success) {
-        // Recargar posts para obtener contadores actualizados
-        await loadPosts()
-        alert('Post eliminado exitosamente')
+        // Remover el post del estado local
+        setPosts(prev => prev.filter(post => post.id !== postId))
+        window.showSuccessAlert('¡Post eliminado exitosamente!')
       } else {
         console.error('Error eliminando post:', result.error)
-        alert('Error al eliminar el post: ' + (result.error?.message || 'Error desconocido'))
+        window.showErrorAlert('Error al eliminar el post: ' + (result.error?.message || 'Error desconocido'))
       }
     } catch (error) {
       console.error('Error eliminando post:', error)
-      alert('Error al eliminar el post')
+      window.showErrorAlert('Error al eliminar el post')
     }
   }
 
@@ -134,6 +168,8 @@ const ParaTi = () => {
                       key={post.id} 
                       post={post}
                       onDelete={handleDeletePost} 
+                      onVoteUpdate={handleVoteUpdate}
+                      onViewUpdate={handleViewUpdate}
                     />
                   ))}
                 </div>

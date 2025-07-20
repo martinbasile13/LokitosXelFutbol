@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
+import AlertSystem from './components/AlertSystem'
 import ParaTi from './pages/ParaTi'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
@@ -61,6 +62,8 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-base-100" data-theme="night">
+          {/* Sistema de alertas global */}
+          <AlertSystem />
           
           <Routes>
             {/* Ruta pública de autenticación */}

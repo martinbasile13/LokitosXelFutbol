@@ -161,17 +161,17 @@ const Profile = () => {
     e.preventDefault()
     
     if (!user?.id) {
-      alert('Debes estar autenticado para actualizar tu perfil')
+      window.showErrorAlert('Debes estar autenticado para actualizar tu perfil')
       return
     }
 
     if (!editFormData.username.trim()) {
-      alert('El nombre de usuario es requerido')
+      window.showErrorAlert('El nombre de usuario es requerido')
       return
     }
 
     if (editFormData.username.length < 3) {
-      alert('El nombre de usuario debe tener al menos 3 caracteres')
+      window.showErrorAlert('El nombre de usuario debe tener al menos 3 caracteres')
       return
     }
 
@@ -203,17 +203,17 @@ const Profile = () => {
         
         setTimeout(() => {
           closeEditModal()
-          alert('Perfil actualizado exitosamente')
+          window.showSuccessAlert('¡Perfil actualizado exitosamente!')
         }, 500)
         
       } else {
         console.error('Error actualizando perfil:', result.error)
         const errorMsg = result.error?.message || result.error || 'Error desconocido'
-        alert('Error al actualizar el perfil: ' + errorMsg)
+        window.showErrorAlert('Error al actualizar el perfil: ' + errorMsg)
       }
     } catch (error) {
       console.error('Error actualizando perfil:', error)
-      alert('Error al actualizar el perfil: ' + error.message)
+      window.showErrorAlert('Error al actualizar el perfil: ' + error.message)
     } finally {
       setTimeout(() => {
         setIsUpdating(false)
@@ -261,9 +261,8 @@ const Profile = () => {
 
             {/* Header con imagen de fondo */}
             <div className="relative">
-              {/* Imagen de fondo del header */}
-              <div className="h-32 md:h-48 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 relative overflow-hidden">
-                {/* Mostrar imagen de portada si existe */}
+              {/* Imagen de fondo del header - "portada" */}
+              <div className="h-52 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 relative overflow-hidden">
                 {userProfile?.cover_image_url ? (
                   <img 
                     src={userProfile.cover_image_url} 
@@ -279,9 +278,9 @@ const Profile = () => {
                 )}
               </div>
 
-              {/* Avatar posicionado sobre el header */}
-              <div className="absolute -bottom-12 left-4">
-                <div className="w-24 h-24 md:w-32 md:h-32 border-4 border-base-100 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+              {/* Avatar circular superpuesto - CENTRADO Y MÁS GRANDE */}
+              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+                <div className="w-29 h-29 border-4 border-base-100 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                   {userProfile?.avatar_url ? (
                     <img 
                       src={userProfile.avatar_url} 
@@ -289,59 +288,86 @@ const Profile = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-2xl md:text-4xl font-bold text-white">
+                    <span className="text-2xl font-bold text-white">
                       {(userProfile?.username || 'Usuario').charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
               </div>
-            </div>
 
-            {/* Información del perfil */}
-            <div className="px-4 pt-16 pb-4">
-              {/* Botón Editar Perfil - Ahora abajo de la imagen */}
-              <div className="flex justify-end mb-4">
+              {/* Botón Editar Perfil */}
+              <div className="absolute bottom-4 right-4">
                 <button 
                   onClick={openEditModal}
-                  className="btn btn-outline btn-sm rounded-full border-base-300 hover:bg-base-200"
+                  className="btn btn-outline btn-sm rounded-full border-base-100 bg-base-100/80 backdrop-blur-sm hover:bg-base-100 px-4"
                 >
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Edit className="w-3 h-3 mr-1" />
                   Editar perfil
                 </button>
               </div>
+            </div>
 
-              {/* Nombre y verificación */}
-              <div className="mb-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <h2 className="text-2xl font-bold">{userProfile?.username || 'Usuario'}</h2>
-                  {/* Badge de verificación */}
-                  <div className="flex items-center space-x-1 bg-primary/10 px-2 py-1 rounded-full">
-                    <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
+            {/* Información del perfil - Layout compacto con flex */}
+            <div className="px-4 pt-14 pb-4">
+              {/* Contenedor principal con flex */}
+              <div className="flex justify-between items-start">
+                {/* Lado izquierdo: Info del usuario */}
+                <div className="flex-1 min-w-0">
+                  {/* Nombre del usuario - MÁS GRANDE */}
+                  <h2 className="text-2xl font-bold text-base-content mb-1">
+                    {userProfile?.username || 'Usuario'}
+                  </h2>
+                  <p className="text-base text-base-content/70 mb-1">
+                    @{userProfile?.username || 'usuario'}
+                  </p>
+                  
+                  {/* Escudo del equipo - MÁS GRANDE */}
+                  {userProfile?.team && userProfile.team !== 'Sin Equipo' && (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <TeamBadge team={userProfile.team} size="lg" />
+                      <span className="text-lg font-medium text-primary">
+                        {userProfile.team}
+                      </span>
                     </div>
-                    <span className="text-xs text-primary font-medium">Get verified</span>
-                  </div>
+                  )}
                 </div>
-                <p className="text-base-content/60">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
+
+                {/* Lado derecho: Website */}
+                <div className="flex flex-col items-end space-y-1 ml-4">
+                  {/* Website si existe - URL COMPLETA */}
+                  {userProfile?.website && (
+                    <a 
+                      href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline text-sm flex items-center space-x-1 max-w-40"
+                    >
+                      <span>🔗</span>
+                      <span className="truncate">{userProfile.website}</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
-              {/* Bio del usuario - Solo mostrar si existe */}
+              {/* Bio/Descripción - Caja separada */}
               {userProfile?.bio && (
-                <div className="mt-4">
-                  <p className="text-base-content/80 leading-relaxed">{userProfile.bio}</p>
+                <div className="mt-4 p-3 bg-base-200 rounded-lg border">
+                  <p className="text-base-content/90 text-sm leading-relaxed">{userProfile.bio}</p>
                 </div>
               )}
 
-              {/* Ubicación y fecha */}
-              <div className="flex items-center space-x-4 mb-4 text-sm text-base-content/60">
-                <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{userProfile?.location || 'Argentina'}</span>
-                </div>
+              {/* Ubicación y fecha de unión - Compacto */}
+              <div className="mt-4 flex flex-wrap gap-4 text-sm text-base-content/70">
+                {userProfile?.location && (
+                  <div className="flex items-center space-x-1">
+                    <MapPin className="w-4 h-4" />
+                    <span>{userProfile.location}</span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
                   <span>
-                    Joined {userProfile?.created_at 
+                    Se unió en {userProfile?.created_at 
                       ? new Date(userProfile.created_at).toLocaleDateString('es-ES', { 
                           year: 'numeric', 
                           month: 'long' 
@@ -352,39 +378,25 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Sitio web */}
-              {userProfile?.website && (
-                <div className="mb-4">
-                  <a 
-                    href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline text-sm"
-                  >
-                    🔗 {userProfile.website}
-                  </a>
-                </div>
-              )}
-
-              {/* Equipo favorito */}
-              {userProfile?.team && userProfile.team !== 'Sin Equipo' && (
-                <div className="flex items-center space-x-2 mb-4">
-                  <TeamBadge team={userProfile.team} size="sm" />
-                  <span className="text-sm text-primary font-medium">
-                    {userProfile.team}
+              {/* Estadísticas estilo Twitter - NUEVA SECCIÓN */}
+              <div className="mt-6 flex items-center space-x-6 py-3 border-t border-base-300">
+                <div className="flex items-center space-x-1">
+                  <span className="font-bold text-lg">{userStats.followers}</span>
+                  <span className="text-base-content/70 text-sm">
+                    <strong>Seguidores</strong>
                   </span>
                 </div>
-              )}
-
-              {/* Estadísticas de seguidores */}
-              <div className="flex items-center space-x-6 mb-6">
                 <div className="flex items-center space-x-1">
-                  <span className="font-bold text-base-content">{userStats.following}</span>
-                  <span className="text-base-content/60">Following</span>
+                  <span className="font-bold text-lg">{userStats.following}</span>
+                  <span className="text-base-content/70 text-sm">
+                    <strong>Siguiendo</strong>
+                  </span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <span className="font-bold text-base-content">{userStats.followers}</span>
-                  <span className="text-base-content/60">Followers</span>
+                  <span className="font-bold text-lg">{userStats.posts}</span>
+                  <span className="text-base-content/70 text-sm">
+                    <strong>Posts</strong>
+                  </span>
                 </div>
               </div>
             </div>

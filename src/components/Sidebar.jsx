@@ -22,12 +22,8 @@ const Sidebar = ({ onOpenPostModal }) => {
       {/* Logo en la parte superior como Twitter - RESTAURADO */}
       <div className="p-2 py-3">
         <Link to="/" className="flex justify-center xl:justify-start">
-          <div className="">
-            <img 
-              src="/logo/finalLogo.png" 
-              alt="LokitosXelFutbol" 
-              className=""
-            />
+          <div className="flex items-center space-x-2 ">
+            <h1 className="text-3xl">LokitosXelFutbol</h1>
           </div>
         </Link>
       </div>

@@ -388,10 +388,23 @@ export const checkUserProfile = async (userId) => {
 // Obtener posts de un usuario específico
 export const getUserPosts = async (userId) => {
   try {
-    // Primero obtener los posts del usuario
-    const { data: postsData, error: postsError } = await supabase
+    console.log('🎯 getUserPosts en userService - usando sistema de likes')
+    
+    // Obtener posts del usuario directamente con contadores
+    const { data: posts, error: postsError } = await supabase
       .from('posts')
-      .select('*')
+      .select(`
+        id,
+        title,
+        content,
+        image_url,
+        video_url,
+        views_count,
+        likes_count,
+        created_at,
+        updated_at,
+        user_id
+      `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
@@ -400,75 +413,58 @@ export const getUserPosts = async (userId) => {
       return []
     }
 
-    if (!postsData || postsData.length === 0) {
+    if (!posts || posts.length === 0) {
       return []
     }
 
-    // Obtener información del perfil del usuario
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, username, avatar_url, team')
-      .eq('id', userId)
-      .single()
+    const postIds = posts.map(post => post.id)
+
+    // Obtener perfil del usuario y conteo de comentarios
+    const [profileResult, commentsCountResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, username, experience_points, team, avatar_url')
+        .eq('id', userId)
+        .single(),
+      
+      // Contar comentarios por post
+      supabase
+        .from('comments')
+        .select('post_id')
+        .in('post_id', postIds)
+        .then(({ data }) => {
+          const counts = {}
+          data?.forEach(comment => {
+            counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
+          })
+          return counts
+        })
+    ])
+
+    const { data: profile, error: profileError } = profileResult
 
     if (profileError) {
-      console.error('Error obteniendo perfil del usuario:', profileError)
+      console.error('Error obteniendo perfil:', profileError)
     }
 
-    // Obtener likes para todos los posts (en lugar de votes)
-    const postIds = postsData.map(post => post.id)
-    const { data: likesData, error: likesError } = await supabase
-      .from('likes')
-      .select('post_id, user_id')
-      .in('post_id', postIds)
-
-    if (likesError) {
-      console.error('Error obteniendo likes:', likesError)
-    }
-
-    // Obtener vistas para todos los posts
-    const { data: viewsData, error: viewsError } = await supabase
-      .from('post_views')
-      .select('post_id')
-      .in('post_id', postIds)
-
-    if (viewsError) {
-      console.error('Error obteniendo vistas:', viewsError)
-    }
-
-    // Obtener comentarios para todos los posts
-    const { data: commentsData, error: commentsError } = await supabase
-      .from('comments')
-      .select('id, post_id')
-      .in('post_id', postIds)
-
-    if (commentsError) {
-      console.error('Error obteniendo comentarios:', commentsError)
-    }
-
-    // Procesar los datos para incluir contadores y perfil
-    const processedPosts = postsData.map(post => {
-      const postLikes = likesData?.filter(l => l.post_id === post.id) || []
-      const postViews = viewsData?.filter(v => v.post_id === post.id) || []
-      const postComments = commentsData?.filter(c => c.post_id === post.id) || []
+    // Combinar posts con perfil - USANDO CONTADORES DIRECTOS DE LIKES
+    const postsWithData = posts.map(post => {
+      const commentsCount = commentsCountResult[post.id] || 0
       
       return {
         ...post,
-        profiles: profileData, // Agregar información del perfil
-        likes_count: postLikes.length,
-        views_count: postViews.length,
-        comments_count: postComments.length,
-        user_liked: postLikes.some(l => l.user_id === userId),
-        // Para compatibilidad con el sistema anterior
-        upvotes: 0,
-        downvotes: 0,
-        user_vote: null
+        profiles: profile || null,
+        comments_count: commentsCount,
+        views_count: post.views_count || 0,
+        likes_count: post.likes_count || 0, // Usar contadores directos de la tabla posts
+        is_liked: false // No rastreamos likes individuales en el perfil, solo contadores
       }
     })
 
-    return processedPosts
+    console.log('📊 Posts obtenidos con sistema de likes:', postsWithData)
+    return postsWithData
   } catch (error) {
-    console.error('Error en getUserPosts:', error)
+    console.error('💥 Error en getUserPosts:', error)
     return []
   }
 }
@@ -507,5 +503,31 @@ export const updateCoverImage = async (userId, file, currentCoverUrl = null) => 
   } catch (error) {
     console.error('Error en updateCoverImage:', error)
     return { success: false, error: error.message }
+  }
+}
+
+// Función para buscar usuarios
+export const searchUsers = async (searchTerm, currentUserId) => {
+  try {
+    if (!searchTerm.trim()) {
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url, team')
+      .neq('id', currentUserId) // Excluir al usuario actual
+      .or(`username.ilike.%${searchTerm}%,team.ilike.%${searchTerm}%`)
+      .limit(8) // Limitar a 8 resultados
+
+    if (error) {
+      console.error('Error buscando usuarios:', error)
+      throw error
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('Error en searchUsers:', error)
+    throw error
   }
 }

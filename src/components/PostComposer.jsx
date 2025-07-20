@@ -62,12 +62,12 @@ const PostComposer = ({
 
   const handleCreatePost = async () => {
     if (!newPost.trim() && !selectedFile) {
-      alert('Escribe algo o selecciona una imagen/video')
+      window.showErrorAlert('Escribe algo o selecciona una imagen/video')
       return
     }
 
     if (!user?.id) {
-      alert('Debes estar autenticado para crear un post')
+      window.showErrorAlert('Debes estar autenticado para crear un post')
       return
     }
 
@@ -96,15 +96,24 @@ const PostComposer = ({
       console.log('Resultado del post:', result)
       
       if (result.success) {
+        // Agregar contadores iniciales al post recién creado
+        const postWithInitialCounts = {
+          ...result.data,
+          views_count: 0,
+          likes_count: 0,
+          comments_count: 0,
+          is_liked: false
+        }
+
         // Limpiar formulario
         setNewPost('')
         setSelectedFile(null)
         setPreviewUrl(null)
         
-        alert('¡Post creado exitosamente!')
+        window.showSuccessAlert('¡Post creado exitosamente!')
         
         // Callback para actualizar el feed o cerrar modal
-        onPostCreated(result.data)
+        onPostCreated(postWithInitialCounts)
         
         // Si es modal, cerrar
         if (isModal) {
@@ -112,12 +121,12 @@ const PostComposer = ({
         }
       } else {
         console.error('Error creando post:', result.error)
-        alert('Error al crear el post: ' + (result.error?.message || 'Error desconocido'))
+        window.showErrorAlert('Error al crear el post: ' + (result.error?.message || 'Error desconocido'))
       }
       
     } catch (error) {
       console.error('Error al crear post:', error)
-      alert('Error al crear el post')
+      window.showErrorAlert('Error al crear el post')
     } finally {
       setIsPosting(false)
     }
