@@ -1,31 +1,25 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.jsx'
 import { 
   Home, 
   Search, 
   Bell, 
-  Mail, 
   User, 
-  MoreHorizontal, 
-  PenTool 
+  PenTool
 } from 'lucide-react'
 
-const Sidebar = () => {
+const Sidebar = ({ onOpenPostModal }) => {
   const location = useLocation()
-  const { user } = useAuth()
 
   const menuItems = [
-    { name: 'Inicio', icon: Home, path: '/para-ti' },
-    { name: 'Explorar', icon: Search, path: '/explorar' },
-    { name: 'Notificaciones', icon: Bell, path: '/notificaciones' },
-    { name: 'Mensajes', icon: Mail, path: '/mensajes' },
-    { name: 'Perfil', icon: User, path: '/perfil' },
-    { name: 'Más', icon: MoreHorizontal, path: '/mas' },
+    { name: 'Inicio', icon: Home, path: '/para-ti', active: location.pathname === '/para-ti' || location.pathname === '/' },
+    { name: 'Explorar', icon: Search, path: '/explorar', active: location.pathname === '/explorar' },
+    { name: 'Notificaciones', icon: Bell, path: '/notificaciones', active: location.pathname === '/notificaciones' },
+    { name: 'Perfil', icon: User, path: '/perfil', active: location.pathname === '/perfil' },
   ]
 
   return (
     <div className="h-full flex flex-col">
-      {/* Logo en la parte superior como Twitter */}
+      {/* Logo en la parte superior como Twitter - RESTAURADO */}
       <div className="p-2 py-3">
         <Link to="/" className="flex justify-center xl:justify-start">
           <div className="">
@@ -43,7 +37,7 @@ const Sidebar = () => {
         <div className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon
-            const isActive = location.pathname === item.path
+            const isActive = item.active
             
             return (
               <Link
@@ -66,7 +60,10 @@ const Sidebar = () => {
 
         {/* Botón para crear post estilo Twitter */}
         <div className="mt-8 px-2">
-          <button className="btn btn-primary w-full xl:w-full rounded-full hover:scale-105 transition-transform py-3 text-lg font-bold">
+          <button 
+            onClick={onOpenPostModal}
+            className="btn btn-primary w-full xl:w-full rounded-full hover:scale-105 transition-transform py-3 text-lg font-bold"
+          >
             <span className="hidden xl:inline">Opinar</span>
             <PenTool className="w-6 h-6 xl:hidden" />
           </button>

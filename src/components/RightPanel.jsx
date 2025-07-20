@@ -14,6 +14,7 @@ import {
   X,
   Search
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 const RightPanel = () => {
   const { user, userProfile, refreshUserProfile } = useAuth()
@@ -233,135 +234,138 @@ const RightPanel = () => {
           />
         </div>
 
-        {/* Perfil del usuario actual - estilo Twitter Premium */}
+        {/* Perfil del usuario actual - DISEÑO HORIZONTAL COMO LA IMAGEN */}
         {user && userProfile && (
           <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">Tu Perfil</h2>
-              
-              <div className="flex items-center space-x-4 mb-4">
-                <Avatar 
-                  src={userProfile?.avatar_url}
-                  alt={userProfile?.username || 'Usuario'}
-                  name={userProfile?.username || 'Usuario'}
-                  size="xl"
-                />
-                <div className="flex-1">
-                  <h3 className="font-bold text-xl">{getDisplayName(userProfile)}</h3>
-                  <p className="text-base-content/60 text-sm">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
-                  {userProfile?.team && (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <TeamBadge team={userProfile.team} size="sm" />
-                      <span className="text-sm text-base-content/70">
-                        {userProfile.team}
-                      </span>
-                    </div>
+            {/* Header azul (placeholder para imagen posterior) */}
+            <div className="h-16 bg-primary"></div>
+            
+            <div className="p-4 -mt-8">
+              {/* Layout horizontal: Avatar izquierda, info derecha */}
+              <div className="flex items-start space-x-3 mb-3">
+                {/* Avatar a la izquierda - CIRCULAR */}
+                <div className="w-16 h-16 border-4 border-base-100 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                  {userProfile?.avatar_url ? (
+                    <img 
+                      src={userProfile.avatar_url} 
+                      alt={userProfile?.username || 'Usuario'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-white">
+                      {(userProfile?.username || 'Usuario').charAt(0).toUpperCase()}
+                    </span>
                   )}
                 </div>
+                
+                {/* Info en el medio */}
+                <div className="flex-1 pt-4">
+                  <h3 className="font-bold text-base text-white">{getDisplayName(userProfile)}</h3>
+                  <p className="text-base-content/60 text-sm">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
+                </div>
+
+                {/* Badge del equipo A LA IZQUIERDA EN LA MISMA LÍNEA - CENTRADO VERTICALMENTE */}
+                {userProfile?.team && (
+                  <div className="flex items-center space-x-2 pt-4">
+                    <TeamBadge team={userProfile.team} size="md" />
+                    <span className="text-xs text-primary font-medium leading-none">
+                      {userProfile.team}
+                    </span>
+                  </div>
+                )}
               </div>
               
-              {/* Estadísticas del usuario */}
-              <div className="flex justify-between text-center mb-4">
+              {/* Estadísticas en fila horizontal compacta */}
+              <div className="flex justify-between text-center">
                 <div>
-                  <div className="font-bold text-xl">{userStats.posts}</div>
-                  <div className="text-base-content/70 text-sm">Posts</div>
+                  <div className="font-bold text-primary text-lg">{userStats.posts}</div>
+                  <div className="text-base-content/70 text-xs">Posts</div>
                 </div>
                 <div>
-                  <div className="font-bold text-xl">{userStats.followers}</div>
-                  <div className="text-base-content/70 text-sm">Seguidores</div>
+                  <div className="font-bold text-primary text-lg">{userStats.followers}</div>
+                  <div className="text-base-content/70 text-xs">Seguidores</div>
                 </div>
                 <div>
-                  <div className="font-bold text-xl">{userStats.following}</div>
-                  <div className="text-base-content/70 text-sm">Siguiendo</div>
+                  <div className="font-bold text-primary text-lg">{userStats.following}</div>
+                  <div className="text-base-content/70 text-xs">Siguiendo</div>
                 </div>
               </div>
-              
-              {/* Botón de editar perfil */}
-              <button 
-                onClick={openEditModal}
-                className="btn btn-outline btn-sm rounded-full w-full"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Editar perfil
-              </button>
             </div>
           </div>
         )}
 
-        {/* What's happening - Tendencias estilo Twitter */}
+        {/* What's happening - Tendencias estilo Twitter - MÁS COMPACTO */}
         <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
-          <div className="p-4">
-            <h2 className="text-xl font-bold mb-4">Tendencias en fútbol</h2>
-            <div className="space-y-3">
+          <div className="p-3">
+            <h2 className="text-lg font-bold mb-2">Tendencias en fútbol</h2>
+            <div className="space-y-2">
               {trends.map((trend, index) => (
-                <div key={index} className="cursor-pointer hover:bg-base-200/50 p-2 -m-2 rounded-lg transition-colors group">
+                <div key={index} className="cursor-pointer hover:bg-base-200/50 p-1.5 -m-1.5 rounded-lg transition-colors group">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="text-xs text-base-content/60 mb-1">Tendencia en Argentina</p>
-                      <p className="font-bold text-lg text-primary">{trend.topic}</p>
+                      <p className="text-xs text-base-content/60">Tendencia en Argentina</p>
+                      <p className="font-bold text-sm text-primary">{trend.topic}</p>
                       <p className="text-xs text-base-content/60">{trend.posts}</p>
-                    </div>
-                    <div className="text-base-content/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                      </svg>
                     </div>
                   </div>
                 </div>
               ))}
-              <button className="text-primary hover:underline text-sm">
+              <button className="text-primary hover:underline text-xs pt-1">
                 Mostrar más
               </button>
             </div>
           </div>
         </div>
 
-        {/* Who to follow - A quién seguir estilo Twitter */}
+        {/* Who to follow - A quién seguir estilo Twitter - MÁS COMPACTO */}
         <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
-          <div className="p-4">
-            <h2 className="text-xl font-bold mb-4">A quién seguir</h2>
-            <div className="space-y-3">
+          <div className="p-3">
+            <h2 className="text-lg font-bold mb-2">A quién seguir</h2>
+            <div className="space-y-2">
               {loadingUsers ? (
-                <div className="py-4 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                <div className="py-2 text-center">
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto text-primary" />
                 </div>
               ) : suggestedUsers.length > 0 ? (
                 suggestedUsers.map((suggestedUser) => (
-                  <div key={suggestedUser.id} className="flex items-center justify-between py-2">
-                    <div className="flex items-center space-x-3 flex-1">
+                  <div key={suggestedUser.id} className="flex items-center justify-between py-1">
+                    <Link 
+                      to={`/user/${suggestedUser.id}`}
+                      className="flex items-center space-x-2 flex-1 hover:bg-base-300/50 p-1 rounded-lg transition-colors"
+                    >
                       <Avatar 
                         src={suggestedUser.avatar_url}
                         alt={suggestedUser.username || 'Usuario'}
                         name={suggestedUser.username || 'Usuario'}
-                        size="md"
+                        team={suggestedUser.team} // Agregar equipo del usuario
+                        size="sm"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate">{suggestedUser.username}</p>
+                        <p className="font-bold text-xs truncate">{suggestedUser.username}</p>
                         <p className="text-xs text-base-content/60 truncate">@{suggestedUser.username?.toLowerCase()}</p>
                         {suggestedUser.team && (
-                          <div className="flex items-center space-x-1 mt-1">
-                            <TeamBadge team={suggestedUser.team} size="xs" />
-                            <span className="text-xs text-base-content/60 truncate">{suggestedUser.team}</span>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-base-content/60">⚽ {suggestedUser.team}</span>
                           </div>
                         )}
                       </div>
-                    </div>
+                    </Link>
                     <button 
                       onClick={() => handleFollowUser(suggestedUser.id)}
                       disabled={followingStates[suggestedUser.id]}
-                      className="btn btn-sm rounded-full bg-white text-black hover:bg-gray-200 border-gray-300 ml-3"
+                      className="btn btn-xs rounded-full bg-white text-black hover:bg-gray-200 border-gray-300 ml-2 flex-shrink-0"
                     >
                       Seguir
                     </button>
                   </div>
                 ))
               ) : (
-                <div className="py-4 text-center text-base-content/60">
-                  <UserPlus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No hay usuarios sugeridos</p>
+                <div className="py-2 text-center text-base-content/60">
+                  <UserPlus className="w-4 h-4 mx-auto mb-1 opacity-50" />
+                  <p className="text-xs">No hay usuarios sugeridos</p>
                 </div>
               )}
-              <button className="text-primary hover:underline text-sm">
+              <button className="text-primary hover:underline text-xs pt-1">
                 Mostrar más
               </button>
             </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-const UPLOAD_ENDPOINT = import.meta.env.VITE_UPLOAD_ENDPOINT || 'https://falling-boat-f7d7.basiledev-oficial.workers.dev/upload';
+// Usar la URL correcta del worker
+const UPLOAD_ENDPOINT = 'https://falling-boat-f7d7.basiledev-oficial.workers.dev/upload';
 
 const MediaUploader = ({ onUpload }) => {
   const [file, setFile] = useState(null);
@@ -24,18 +25,33 @@ const MediaUploader = ({ onUpload }) => {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      
+      console.log('Subiendo archivo a:', UPLOAD_ENDPOINT);
+      console.log('Archivo:', file.name, 'Tamaño:', file.size, 'Tipo:', file.type);
+      
       const res = await fetch(UPLOAD_ENDPOINT, {
         method: 'POST',
         body: formData,
       });
-      if (!res.ok) throw new Error('Error subiendo archivo');
+      
+      console.log('Respuesta del servidor:', res.status, res.statusText);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Error ${res.status}: ${errorText}`);
+      }
+      
       const data = await res.json();
+      console.log('Datos recibidos:', data);
+      
       if (data.url) {
         onUpload(data.url);
       } else {
         setError('No se recibió URL del archivo');
       }
     } catch (err) {
+      console.error('Error en upload:', err);
       setError(err.message);
     } finally {
       setIsUploading(false);

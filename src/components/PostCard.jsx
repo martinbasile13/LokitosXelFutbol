@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
+import ImageModal from './ImageModal'
 import { useAuth } from '../context/AuthContext.jsx'
 import { votePost, addPostView, likePost, unlikePost } from '../services/postService'
 import { 
@@ -25,6 +26,7 @@ const PostCard = ({ post, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [postData, setPostData] = useState(post)
   const [viewRegistered, setViewRegistered] = useState(false)
+  const [showImageModal, setShowImageModal] = useState(false)
 
   // Registrar vista automáticamente cuando el post aparece en el feed
   useEffect(() => {
@@ -288,59 +290,98 @@ const PostCard = ({ post, onDelete }) => {
     // La vista ya se registró automáticamente al renderizar el componente
   }
 
+  // Manejar tecla ESC para cerrar modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showImageModal) {
+        setShowImageModal(false)
+      }
+    }
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'hidden' // Evitar scroll del fondo
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'unset'
+    }
+  }, [showImageModal])
+
   return (
     <div className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
-      {/* Área clicable del post */}
-      <Link 
-        to={`/post/${postData.id}`}
-        onClick={handlePostClick}
-        className="block cursor-pointer p-6 pb-3"
-      >
-        {/* Header */}
-        <div className="flex items-start space-x-3">
+      {/* Header */}
+      <div className="flex items-start space-x-3 p-6 pb-3">
+        <Link to={`/user/${postData.user_id}`}>
           <Avatar 
             src={postData.profiles?.avatar_url}
             alt={`Avatar de ${postData.profiles?.username}`}
             name={postData.profiles?.username || 'Usuario'}
+            team={postData.profiles?.team} // Agregar equipo del usuario
             size="md"
+            className="hover:scale-105 transition-transform cursor-pointer"
           />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2">
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-2">
+            <Link 
+              to={`/user/${postData.user_id}`}
+              className="hover:underline"
+            >
               <h3 className="font-bold truncate max-w-[8ch] sm:max-w-[12ch] md:max-w-[16ch]" title={postData.profiles?.username || 'Usuario'}>
                 {truncateText(postData.profiles?.username || 'Usuario', 8)}
               </h3>
-              <span className="text-base-content/50">·</span>
-              <span className="text-base-content/50 text-sm">{formatTime(postData.created_at)}</span>
-              {postData.profiles?.team && (
-                <TeamBadge team={postData.profiles.team} size="sm" />
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
+            </Link>
+            <span className="text-base-content/50">·</span>
+            <span className="text-base-content/50 text-sm">{formatTime(postData.created_at)}</span>
+            {postData.profiles?.team && (
+              <TeamBadge team={postData.profiles.team} size="sm" />
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Link 
+              to={`/user/${postData.user_id}`}
+              className="hover:underline"
+            >
               <span className="text-base-content/70 text-sm truncate max-w-[12ch] sm:max-w-[16ch] md:max-w-[24ch]" title={`@${postData.profiles?.username || 'usuario'}`}>
                 @{truncateText(postData.profiles?.username || 'usuario', 8)}
               </span>
-              {postData.profiles?.team && (
-                <>
-                  <span className="text-base-content/50">·</span>
-                  <span className="text-base-content/60 text-xs truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[32ch]" title={postData.profiles.team}>
-                    {truncateText(postData.profiles.team, 20)}
-                  </span>
-                </>
-              )}
-            </div>
+            </Link>
+            {postData.profiles?.team && (
+              <>
+                <span className="text-base-content/50">·</span>
+                <span className="text-base-content/60 text-xs truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[32ch]" title={postData.profiles.team}>
+                  {truncateText(postData.profiles.team, 20)}
+                </span>
+              </>
+            )}
           </div>
         </div>
+      </div>
 
+      {/* Contenido del post - Clickeable para navegar al post */}
+      <Link 
+        to={`/post/${postData.id}`}
+        onClick={handlePostClick}
+        className="block cursor-pointer px-6 pb-3"
+      >
         {/* Contenido del post */}
         <div className="mt-3">
           <p className="text-base-content leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{postData.content}</p>
-          {/* Mostrar imagen si existe */}
+          
+          {/* Mostrar imagen si existe - CON MODAL */}
           {postData.image_url && (
-            <div className="mt-3">
+            <div className="mt-3 flex justify-center">
               <img 
                 src={postData.image_url} 
                 alt="Imagen del post" 
-                className="max-h-96 w-full object-cover rounded-lg border border-base-300"
+                className="max-w-full max-h-96 object-contain rounded-lg border border-base-300 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setShowImageModal(true)
+                }}
                 onError={(e) => {
                   console.error('Error cargando imagen:', postData.image_url);
                   e.target.style.display = 'none';
@@ -348,13 +389,14 @@ const PostCard = ({ post, onDelete }) => {
               />
             </div>
           )}
-          {/* Mostrar video si existe */}
+          
+          {/* Mostrar video si existe - CON PROPORCIONES ORIGINALES Y BORDES NEGROS */}
           {postData.video_url && (
-            <div className="mt-3">
+            <div className="mt-3 flex justify-center bg-black rounded-lg">
               <video 
                 src={postData.video_url} 
                 controls 
-                className="max-h-96 w-full rounded-lg border border-base-300"
+                className="max-w-full max-h-96 object-contain rounded-lg"
                 onError={(e) => {
                   console.error('Error cargando video:', postData.video_url);
                   e.target.style.display = 'none';
@@ -417,11 +459,15 @@ const PostCard = ({ post, onDelete }) => {
 
         {/* Otras acciones */}
         <div className="flex items-center space-x-4">
-          {/* Comentarios */}
-          <div className="flex items-center space-x-2 text-base-content/60">
+          {/* Comentarios - Ahora clickeable para ir al post */}
+          <Link 
+            to={`/post/${postData.id}`}
+            className="flex items-center space-x-2 text-base-content/60 hover:text-primary transition-colors cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          >
             <MessageCircle className="w-5 h-5" />
             <span className="text-sm">{postData.comments_count || 0}</span>
-          </div>
+          </Link>
 
           {/* Likes */}
           <button 
@@ -559,6 +605,14 @@ const PostCard = ({ post, onDelete }) => {
           </div>
         </div>
       </div>
+
+      {/* Modal de imagen */}
+      <ImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        imageUrl={postData.image_url}
+        alt="Imagen del post"
+      />
     </div>
   )
 }

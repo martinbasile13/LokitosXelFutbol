@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { uploadAvatar, deleteAvatar } from './mediaService'
+import { uploadAvatar, deleteAvatar, uploadCoverImage, deleteCoverImageFromSupabase } from './mediaService'
 
 // Obtener usuarios sugeridos (excluye el usuario actual y los que ya sigue)
 export const getSuggestedUsers = async (currentUserId, limit = 5) => {
@@ -184,6 +184,11 @@ export const getUserProfile = async (userId) => {
         experience_points,
         team,
         avatar_url,
+        bio,
+        location,
+        website,
+        birth_date,
+        cover_image_url,
         created_at
       `)
       .eq('id', userId)
@@ -218,6 +223,21 @@ export const updateUserProfile = async (userId, updatedData) => {
     if (updatedData.avatar_url !== undefined) {
       updateFields.avatar_url = updatedData.avatar_url
     }
+    if (updatedData.bio !== undefined) {
+      updateFields.bio = updatedData.bio
+    }
+    if (updatedData.location !== undefined) {
+      updateFields.location = updatedData.location
+    }
+    if (updatedData.website !== undefined) {
+      updateFields.website = updatedData.website
+    }
+    if (updatedData.birth_date !== undefined) {
+      updateFields.birth_date = updatedData.birth_date
+    }
+    if (updatedData.cover_image_url !== undefined) {
+      updateFields.cover_image_url = updatedData.cover_image_url
+    }
     
     const { data, error } = await supabase
       .from('profiles')
@@ -240,11 +260,12 @@ export const updateUserProfile = async (userId, updatedData) => {
 }
 
 // Actualizar perfil con avatar subido
-export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFile = null) => {
+export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFile = null, coverFile = null) => {
   try {
-    console.log('Actualizando perfil con avatar para usuario:', userId)
+    console.log('Actualizando perfil con archivos para usuario:', userId)
     
     let avatarUrl = updatedData.avatar_url // Mantener URL actual si no se sube nueva imagen
+    let coverUrl = updatedData.cover_image_url // Mantener URL actual si no se sube nueva imagen
     
     // Si hay un archivo de avatar, subirlo primero
     if (avatarFile) {
@@ -269,6 +290,30 @@ export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFil
         await deleteAvatar(currentAvatarUrl)
       }
     }
+
+    // Si hay un archivo de portada, subirlo a SUPABASE STORAGE
+    if (coverFile) {
+      console.log('Subiendo nueva imagen de portada a Supabase Storage...')
+      
+      // Obtener imagen de portada actual para eliminarla después
+      const currentProfile = await getUserProfile(userId)
+      const currentCoverUrl = currentProfile?.cover_image_url
+      
+      // Subir nueva imagen de portada a Supabase Storage
+      const uploadResult = await uploadCoverImage(coverFile, userId)
+      
+      if (!uploadResult.success) {
+        return { success: false, error: uploadResult.error }
+      }
+      
+      coverUrl = uploadResult.data.publicUrl
+      console.log('Imagen de portada subida exitosamente a Supabase:', coverUrl)
+      
+      // Eliminar imagen anterior si existe (usando la función de Supabase)
+      if (currentCoverUrl && currentCoverUrl !== coverUrl) {
+        await deleteCoverImageFromSupabase(currentCoverUrl)
+      }
+    }
     
     // Actualizar perfil en la base de datos
     const updateFields = {}
@@ -281,6 +326,21 @@ export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFil
     }
     if (avatarUrl !== undefined) {
       updateFields.avatar_url = avatarUrl
+    }
+    if (coverUrl !== undefined) {
+      updateFields.cover_image_url = coverUrl
+    }
+    if (updatedData.bio !== undefined) {
+      updateFields.bio = updatedData.bio
+    }
+    if (updatedData.location !== undefined) {
+      updateFields.location = updatedData.location
+    }
+    if (updatedData.website !== undefined) {
+      updateFields.website = updatedData.website
+    }
+    if (updatedData.birth_date !== undefined) {
+      updateFields.birth_date = updatedData.birth_date
     }
     
     const { data, error } = await supabase
@@ -323,4 +383,129 @@ export const checkUserProfile = async (userId) => {
     console.error('Error en checkUserProfile:', error)
     return false
   }
-} 
+}
+
+// Obtener posts de un usuario específico
+export const getUserPosts = async (userId) => {
+  try {
+    // Primero obtener los posts del usuario
+    const { data: postsData, error: postsError } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (postsError) {
+      console.error('Error obteniendo posts del usuario:', postsError)
+      return []
+    }
+
+    if (!postsData || postsData.length === 0) {
+      return []
+    }
+
+    // Obtener información del perfil del usuario
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url, team')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) {
+      console.error('Error obteniendo perfil del usuario:', profileError)
+    }
+
+    // Obtener likes para todos los posts (en lugar de votes)
+    const postIds = postsData.map(post => post.id)
+    const { data: likesData, error: likesError } = await supabase
+      .from('likes')
+      .select('post_id, user_id')
+      .in('post_id', postIds)
+
+    if (likesError) {
+      console.error('Error obteniendo likes:', likesError)
+    }
+
+    // Obtener vistas para todos los posts
+    const { data: viewsData, error: viewsError } = await supabase
+      .from('post_views')
+      .select('post_id')
+      .in('post_id', postIds)
+
+    if (viewsError) {
+      console.error('Error obteniendo vistas:', viewsError)
+    }
+
+    // Obtener comentarios para todos los posts
+    const { data: commentsData, error: commentsError } = await supabase
+      .from('comments')
+      .select('id, post_id')
+      .in('post_id', postIds)
+
+    if (commentsError) {
+      console.error('Error obteniendo comentarios:', commentsError)
+    }
+
+    // Procesar los datos para incluir contadores y perfil
+    const processedPosts = postsData.map(post => {
+      const postLikes = likesData?.filter(l => l.post_id === post.id) || []
+      const postViews = viewsData?.filter(v => v.post_id === post.id) || []
+      const postComments = commentsData?.filter(c => c.post_id === post.id) || []
+      
+      return {
+        ...post,
+        profiles: profileData, // Agregar información del perfil
+        likes_count: postLikes.length,
+        views_count: postViews.length,
+        comments_count: postComments.length,
+        user_liked: postLikes.some(l => l.user_id === userId),
+        // Para compatibilidad con el sistema anterior
+        upvotes: 0,
+        downvotes: 0,
+        user_vote: null
+      }
+    })
+
+    return processedPosts
+  } catch (error) {
+    console.error('Error en getUserPosts:', error)
+    return []
+  }
+}
+
+// Actualizar imagen de portada
+export const updateCoverImage = async (userId, file, currentCoverUrl = null) => {
+  try {
+    let coverImageUrl = currentCoverUrl
+
+    if (file) {
+      // Subir nueva imagen de portada
+      const uploadResult = await uploadCoverImage(file, userId)
+      if (!uploadResult.success) {
+        return uploadResult
+      }
+      coverImageUrl = uploadResult.data.publicUrl
+    }
+
+    // Actualizar URL en la base de datos
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ 
+        cover_image_url: coverImageUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error actualizando imagen de portada en BD:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('Error en updateCoverImage:', error)
+    return { success: false, error: error.message }
+  }
+}

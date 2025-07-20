@@ -3,6 +3,8 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
 import ParaTi from './pages/ParaTi'
 import PostDetail from './pages/PostDetail'
+import Profile from './pages/Profile'
+import UserProfile from './pages/UserProfile' // Nueva página para ver perfiles de otros usuarios
 import Auth from './pages/Auth'
 import './Styles/index.css'
 
@@ -16,17 +18,6 @@ const Partidos = () => (
       </p>
       <p className="text-sm text-base-content/50 mt-2">
         Aquí mostraremos estadísticas, fixtures y datos de la API de fútbol
-      </p>
-    </div>
-  </div>
-)
-
-const Perfil = () => (
-  <div className="min-h-screen flex items-center justify-center bg-base-100">
-    <div className="text-center">
-      <h1 className="text-4xl font-bold mb-4">👤 Perfil</h1>
-      <p className="text-lg text-base-content/70">
-        Página de perfil en desarrollo
       </p>
     </div>
   </div>
@@ -87,8 +78,11 @@ function App() {
                   <Route path="/post/:postId" element={<PostDetail />} />
                   <Route path="/partidos" element={<Partidos />} />
                   
+                  {/* Rutas de perfil */}
+                  <Route path="/perfil" element={<Profile />} />
+                  <Route path="/user/:userId" element={<UserProfile />} />
+                  
                   {/* Rutas de navegación */}
-                  <Route path="/perfil" element={<Perfil />} />
                   <Route path="/explorar" element={<Explorar />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/mensajes" element={<Mensajes />} />

@@ -62,6 +62,7 @@ const CommentComponent = ({
           src={comment.profiles?.avatar_url}
           alt={`Avatar de ${comment.profiles?.username}`}
           name={comment.profiles?.username || 'Usuario'}
+          team={comment.profiles?.team} // Agregar equipo del usuario
           size="sm"
           className="flex-shrink-0"
         />
@@ -682,17 +683,26 @@ const PostDetail = () => {
                 <div className="card-body">
                   {/* Header del post */}
                   <div className="flex items-start space-x-3 mb-4">
-                    <Avatar 
-                      src={post.profiles?.avatar_url}
-                      alt={`Avatar de ${post.profiles?.username}`}
-                      name={post.profiles?.username || 'Usuario'}
-                      size="lg"
-                    />
+                    <Link to={`/user/${post.user_id}`}>
+                      <Avatar 
+                        src={post.profiles?.avatar_url}
+                        alt={`Avatar de ${post.profiles?.username}`}
+                        name={post.profiles?.username || 'Usuario'}
+                        team={post.profiles?.team}
+                        size="lg"
+                        className="hover:scale-105 transition-transform cursor-pointer"
+                      />
+                    </Link>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <h3 className="font-bold truncate max-w-[12ch] sm:max-w-[16ch] md:max-w-[24ch]" title={post.profiles?.username || 'Usuario'}>
-                          {truncateText(post.profiles?.username || 'Usuario', 12)}
-                        </h3>
+                        <Link 
+                          to={`/user/${post.user_id}`}
+                          className="hover:underline"
+                        >
+                          <h3 className="font-bold truncate max-w-[12ch] sm:max-w-[16ch] md:max-w-[24ch]" title={post.profiles?.username || 'Usuario'}>
+                            {truncateText(post.profiles?.username || 'Usuario', 12)}
+                          </h3>
+                        </Link>
                         <span className="text-base-content/50">·</span>
                         <span className="text-base-content/50 text-sm">{formatTime(post.created_at)}</span>
                         {post.profiles?.team && (
@@ -700,9 +710,14 @@ const PostDetail = () => {
                         )}
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-base-content/70 text-sm truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[32ch]" title={`@${post.profiles?.username || 'usuario'}`}>
-                          @{truncateText(post.profiles?.username || 'usuario', 12)}
-                        </span>
+                        <Link 
+                          to={`/user/${post.user_id}`}
+                          className="hover:underline"
+                        >
+                          <span className="text-base-content/70 text-sm truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[32ch]" title={`@${post.profiles?.username || 'usuario'}`}>
+                            @{truncateText(post.profiles?.username || 'usuario', 12)}
+                          </span>
+                        </Link>
                         {post.profiles?.team && (
                           <>
                             <span className="text-base-content/50">·</span>
