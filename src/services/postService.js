@@ -565,15 +565,15 @@ export const getPostById = async (postId, userId = null) => {
 
     if (postError) {
       console.error('❌ Error obteniendo post:', postError)
-      return { success: false, error: postError }
+      throw postError
     }
 
     if (!post) {
-      return { success: false, error: { message: 'Post no encontrado' } }
+      throw new Error('Post no encontrado')
     }
 
-    // Obtener perfil del usuario y contar comentarios
-    const [profileResult, commentsCount] = await Promise.all([
+    // Obtener perfil del usuario, contar comentarios y verificar like
+    const [profileResult, commentsCount, userLike] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, experience_points, team, avatar_url')
@@ -583,10 +583,19 @@ export const getPostById = async (postId, userId = null) => {
       supabase
         .from('comments')
         .select('id', { count: 'exact' })
+        .eq('post_id', postId),
+
+      // Verificar si el usuario actual ha dado like
+      userId ? supabase
+        .from('post_likes')
+        .select('id')
         .eq('post_id', postId)
+        .eq('user_id', userId)
+        .single() : Promise.resolve({ data: null, error: null })
     ])
 
     const { data: profile, error: profileError } = profileResult
+    const isLiked = userLike.data ? true : false
 
     if (profileError) {
       console.error('⚠️ Error obteniendo perfil:', profileError)
@@ -599,14 +608,14 @@ export const getPostById = async (postId, userId = null) => {
       comments_count: commentsCount.count || 0,
       views_count: post.views_count || 0,
       likes_count: post.likes_count || 0,
-      user_vote: null // Siempre null porque no rastreamos votos individuales
+      is_liked: isLiked
     }
 
     console.log('✅ Post obtenido:', postWithData)
-    return { success: true, data: postWithData }
+    return postWithData
   } catch (error) {
     console.error('💥 Error en getPostById:', error)
-    return { success: false, error }
+    throw error
   }
 }
 
@@ -700,31 +709,48 @@ export const getPostComments = async (postId, userId = null) => {
 // Obtener comentarios de un post
 export const getCommentsByPost = async (postId) => {
   try {
-    const { data, error } = await supabase
+    console.log('🎯 getCommentsByPost iniciado para post:', postId)
+
+    // Obtener comentarios básicos primero - SIN parent_id
+    const { data: comments, error: commentsError } = await supabase
       .from('comments')
-      .select(`
-        id,
-        content,
-        created_at,
-        user_id,
-        parent_id,
-        profiles!comments_user_id_fkey (
-          id,
-          username,
-          avatar_url,
-          team
-        )
-      `)
+      .select('id, content, created_at, user_id, post_id')
       .eq('post_id', postId)
-      .is('parent_id', null) // Solo comentarios principales (no respuestas)
       .order('created_at', { ascending: true })
 
-    if (error) {
-      console.error('Error obteniendo comentarios:', error)
-      throw error
+    if (commentsError) {
+      console.error('Error obteniendo comentarios:', commentsError)
+      throw commentsError
     }
 
-    return data || []
+    if (!comments || comments.length === 0) {
+      console.log('No hay comentarios para este post')
+      return []
+    }
+
+    // Obtener los IDs únicos de usuarios
+    const userIds = [...new Set(comments.map(comment => comment.user_id))]
+    console.log('Obteniendo perfiles para usuarios:', userIds)
+
+    // Obtener perfiles de usuarios por separado
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url, team')
+      .in('id', userIds)
+
+    if (profilesError) {
+      console.error('Error obteniendo perfiles:', profilesError)
+      // Continuar sin perfiles si hay error
+    }
+
+    // Combinar comentarios con perfiles
+    const commentsWithProfiles = comments.map(comment => ({
+      ...comment,
+      profiles: profiles?.find(profile => profile.id === comment.user_id) || null
+    }))
+
+    console.log('✅ Comentarios obtenidos exitosamente:', commentsWithProfiles.length)
+    return commentsWithProfiles
   } catch (error) {
     console.error('Error en getCommentsByPost:', error)
     throw error
@@ -734,27 +760,41 @@ export const getCommentsByPost = async (postId) => {
 // Crear un nuevo comentario
 export const createComment = async (commentData) => {
   try {
+    // Remover parent_id del commentData si existe, ya que la columna no existe en la DB
+    const { parent_id, ...cleanCommentData } = commentData
+    
     const { data, error } = await supabase
       .from('comments')
-      .insert(commentData)
+      .insert(cleanCommentData)
       .select(`
         id,
         content,
         created_at,
         user_id,
-        parent_id,
-        profiles!comments_user_id_fkey (
-          id,
-          username,
-          avatar_url,
-          team
-        )
+        post_id
       `)
       .single()
 
     if (error) {
       console.error('Error creando comentario:', error)
       return { success: false, error }
+    }
+
+    // Obtener perfil del usuario por separado para evitar problemas de foreign key
+    if (data && data.user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, team')
+        .eq('id', data.user_id)
+        .single()
+
+      // Combinar datos
+      const commentWithProfile = {
+        ...data,
+        profiles: profile || null
+      }
+
+      return { success: true, data: commentWithProfile }
     }
 
     return { success: true, data }

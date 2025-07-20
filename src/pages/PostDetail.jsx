@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getPostById, getCommentsByPost, createComment, likePost, unlikePost, addPostView } from '../services/postService'
 import Avatar from '../components/Avatar'
@@ -19,6 +19,7 @@ import {
 
 const PostDetail = () => {
   const { postId } = useParams()
+  const navigate = useNavigate()
   const { user, userProfile } = useAuth()
   const [post, setPost] = useState(null)
   const [comments, setComments] = useState([])
@@ -69,6 +70,7 @@ const PostDetail = () => {
       setPost(postData)
     } catch (error) {
       console.error('Error cargando post:', error)
+      setPost(null)
     } finally {
       setLoading(false)
     }
@@ -248,12 +250,12 @@ const PostDetail = () => {
 
           {/* Contenido principal del post - responsive */}
           <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0">
-            {/* Header con navegación */}
+            {/* Header con navegación - BOTÓN DE VOLVER ARREGLADO */}
             <div className="sticky top-0 z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300">
               <div className="flex items-center space-x-4 p-4">
                 <button 
-                  onClick={() => window.history.back()}
-                  className="btn btn-ghost btn-circle btn-sm"
+                  onClick={() => navigate(-1)}
+                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
