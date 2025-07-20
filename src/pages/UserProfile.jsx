@@ -267,12 +267,12 @@ const UserProfile = () => {
                 <p className="text-base-content/60">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
               </div>
 
-              {/* Bio */}
-              <div className="mb-3">
-                <p className="text-base-content leading-relaxed">
-                  {userProfile?.bio || 'Este usuario aún no ha agregado una biografía.'}
-                </p>
-              </div>
+              {/* Bio del usuario - Solo mostrar si existe */}
+              {userProfile?.bio && (
+                <div className="mt-4">
+                  <p className="text-base-content/80 leading-relaxed">{userProfile.bio}</p>
+                </div>
+              )}
 
               {/* Ubicación y fecha */}
               <div className="flex items-center space-x-4 mb-4 text-sm text-base-content/60">
