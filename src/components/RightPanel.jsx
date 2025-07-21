@@ -1,39 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getSuggestedUsers, followUser, getUserStats, updateUserProfileWithAvatar } from '../services/userService'
-import { validateFile, getReadableFileSize } from '../services/mediaService'
-import { EQUIPOS_PRIMERA } from '../data/equipos'
+import { getSuggestedUsers, followUser, getUserStats } from '../services/userService'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import SearchBox from './SearchBox'
 import { 
-  Edit, 
-  TrendingUp, 
   UserPlus, 
   Loader2,
-  Upload,
-  X,
-  Search
+  LogOut,
+  MoreHorizontal,
+  User
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const RightPanel = () => {
-  const { user, userProfile, refreshUserProfile } = useAuth()
+  const { user, userProfile, signOut } = useAuth()
   const [suggestedUsers, setSuggestedUsers] = useState([])
   const [userStats, setUserStats] = useState({ posts: 0, followers: 0, following: 0 })
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [followingStates, setFollowingStates] = useState({})
   
-  // Estados para el modal de edición de perfil
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editFormData, setEditFormData] = useState({
-    username: '',
-    team: ''
-  })
-  const [avatarFile, setAvatarFile] = useState(null)
-  const [avatarPreview, setAvatarPreview] = useState(null)
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  // Estados para el dropdown del perfil
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const profileDropdownRef = useRef(null)
 
   const trends = [
     { topic: '#Boca', posts: '45.2K posts' },
@@ -51,7 +40,7 @@ const RightPanel = () => {
   const loadSuggestedUsers = async () => {
     try {
       setLoadingUsers(true)
-      const users = await getSuggestedUsers(user.id, 2) // Cambiar de 3 a 2 usuarios
+      const users = await getSuggestedUsers(user.id, 2)
       setSuggestedUsers(users)
     } catch (error) {
       console.error('Error cargando usuarios sugeridos:', error)
@@ -79,11 +68,8 @@ const RightPanel = () => {
       
       if (result.success) {
         console.log('Usuario seguido exitosamente, removiendo de la lista')
-        // Remover usuario de la lista después de seguirlo
         setSuggestedUsers(prev => prev.filter(u => u.id !== userToFollowId))
-        // Actualizar estadísticas
         setUserStats(prev => ({ ...prev, following: prev.following + 1 }))
-        // Cargar nuevos usuarios sugeridos
         setTimeout(() => {
           loadSuggestedUsers()
         }, 1000)
@@ -103,120 +89,40 @@ const RightPanel = () => {
     return profile?.username || 'Usuario'
   }
 
-  const getAvatarUrl = (profile) => {
-    return profile?.avatar_url || null
-  }
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false)
+      }
+    }
 
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-
-  // Funciones para el modal de edición de perfil
-  const openEditModal = () => {
-    setEditFormData({
-      username: userProfile?.username || '',
-      team: userProfile?.team || ''
+  const handleLogout = async () => {
+    const confirmed = await window.showConfirm({
+      title: '¿Cerrar sesión?',
+      message: '¿Estás seguro que quieres cerrar sesión?',
+      confirmText: 'Cerrar sesión',
+      cancelText: 'Cancelar',
+      type: 'warning'
     })
-    setAvatarFile(null)
-    setAvatarPreview(userProfile?.avatar_url || null)
-    setUploadProgress(0)
-    setShowEditModal(true)
-  }
 
-  const closeEditModal = () => {
-    setShowEditModal(false)
-    setEditFormData({ username: '', team: '' })
-    setAvatarFile(null)
-    setAvatarPreview(null)
-    setUploadProgress(0)
-  }
-
-  const handleAvatarFileChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    // Validar archivo
-    const validation = validateFile(file, 'image')
-    if (!validation.valid) {
-      alert(validation.error)
-      return
-    }
-
-    // Crear preview
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setAvatarPreview(e.target.result)
-    }
-    reader.readAsDataURL(file)
-    
-    setAvatarFile(file)
-  }
-
-  const removeAvatarPreview = () => {
-    setAvatarFile(null)
-    setAvatarPreview(userProfile?.avatar_url || null)
-  }
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault()
-    
-    if (!editFormData.username.trim()) {
-      alert('El nombre de usuario es requerido')
-      return
-    }
-
-    if (!user?.id) {
-      alert('Usuario no autenticado')
-      return
-    }
-
-    setIsUpdating(true)
-    setUploadProgress(0)
-    
-    try {
-      // Simular progreso durante la subida
-      if (avatarFile) {
-        setUploadProgress(25)
+    if (confirmed) {
+      try {
+        const { error } = await signOut()
+        if (!error) {
+          window.showSuccessAlert('Sesión cerrada exitosamente')
+        } else {
+          console.error('Error cerrando sesión:', error)
+          window.showErrorAlert('Error al cerrar sesión')
+        }
+      } catch (error) {
+        console.error('Error cerrando sesión:', error)
+        window.showErrorAlert('Error al cerrar sesión')
       }
-
-      const result = await updateUserProfileWithAvatar(
-        user.id,
-        {
-          username: editFormData.username.trim(),
-          team: editFormData.team.trim(),
-          avatar_url: userProfile?.avatar_url // Mantener URL actual si no se sube nueva
-        },
-        avatarFile // Archivo de avatar (puede ser null)
-      )
-
-      if (avatarFile) {
-        setUploadProgress(75)
-      }
-
-      if (result.success) {
-        setUploadProgress(100)
-        
-        // Refrescar el perfil en el contexto
-        await refreshUserProfile()
-        // Refrescar estadísticas
-        await loadUserStats()
-        
-        setTimeout(() => {
-          closeEditModal()
-          alert('Perfil actualizado exitosamente')
-        }, 500)
-        
-      } else {
-        console.error('Error actualizando perfil:', result.error)
-        const errorMsg = result.error?.message || result.error || 'Error desconocido'
-        alert('Error al actualizar el perfil: ' + errorMsg)
-      }
-    } catch (error) {
-      console.error('Error actualizando perfil:', error)
-      alert('Error al actualizar el perfil: ' + error.message)
-    } finally {
-      setTimeout(() => {
-        setIsUpdating(false)
-        setUploadProgress(0)
-      }, 500)
     }
   }
 
@@ -227,12 +133,13 @@ const RightPanel = () => {
         {/* Barra de búsqueda estilo Twitter */}
         <SearchBox />
 
-        {/* Perfil del usuario actual - DISEÑO HORIZONTAL COMO LA IMAGEN */}
+        {/* Perfil del usuario actual - CON DROPDOWN EN LOS TRES PUNTITOS */}
         {user && userProfile && (
-          <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300">
+          <div className="bg-base-200/50 rounded-2xl overflow-hidden border border-base-300 relative" ref={profileDropdownRef}>
             {/* Header azul (placeholder para imagen posterior) */}
             <div className="h-16 bg-primary"></div>
             
+            {/* Contenido del perfil */}
             <div className="p-4 -mt-8">
               {/* Layout horizontal: Avatar izquierda, info derecha */}
               <div className="flex items-start space-x-3 mb-3">
@@ -257,22 +164,31 @@ const RightPanel = () => {
                   <p className="text-base-content/60 text-sm">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
                 </div>
 
-                {/* Badge del equipo A LA IZQUIERDA EN LA MISMA LÍNEA - CENTRADO VERTICALMENTE */}
-                {userProfile?.team && (
-                  <div className="flex items-center space-x-2 pt-4">
-                    <TeamBadge team={userProfile.team} size="md" />
-                    <span className="text-xs text-primary font-medium leading-none">
-                      {userProfile.team}
-                    </span>
-                  </div>
-                )}
+                {/* Icono de menú y badge del equipo */}
+                <div className="flex items-center space-x-2 pt-4">
+                  {userProfile?.team && (
+                    <>
+                      <TeamBadge team={userProfile.team} size="md" />
+                      <span className="text-xs text-primary font-medium leading-none">
+                        {userProfile.team}
+                      </span>
+                    </>
+                  )}
+                  {/* BOTÓN DE TRES PUNTITOS FUNCIONAL */}
+                  <button
+                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                    className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors ml-2"
+                  >
+                    <MoreHorizontal className="w-6 h-6 text-base-content/60" />
+                  </button>
+                </div>
               </div>
               
-              {/* Estadísticas en fila horizontal compacta */}
+              {/* Estadísticas en fila horizontal compacta - XP EN LUGAR DE POSTS */}
               <div className="flex justify-between text-center">
                 <div>
-                  <div className="font-bold text-primary text-lg">{userStats.posts}</div>
-                  <div className="text-base-content/70 text-xs">Posts</div>
+                  <div className="font-bold text-primary text-lg">{userProfile?.experience_points || 0}</div>
+                  <div className="text-base-content/70 text-xs">XP</div>
                 </div>
                 <div>
                   <div className="font-bold text-primary text-lg">{userStats.followers}</div>
@@ -284,6 +200,64 @@ const RightPanel = () => {
                 </div>
               </div>
             </div>
+
+            {/* Dropdown estilo Twitter - LIMPIO Y ELEGANTE */}
+            {showProfileDropdown && (
+              <div 
+                className="fixed top-20 right-4 bg-base-100 border border-base-300 rounded-2xl shadow-2xl overflow-hidden min-w-64"
+                style={{ 
+                  zIndex: 99999,
+                  position: 'fixed',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                }}
+              >
+                <div className="py-2">
+                  {/* Información del usuario en el dropdown */}
+                  <div className="px-4 py-3 border-b border-base-300">
+                    <div className="flex items-center space-x-3">
+                      <Avatar 
+                        src={userProfile?.avatar_url}
+                        alt={userProfile?.username || 'Usuario'}
+                        name={userProfile?.username || 'Usuario'}
+                        team={userProfile?.team}
+                        size="sm"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate">{userProfile?.username}</p>
+                        <p className="text-xs text-base-content/60 truncate">@{userProfile?.username?.toLowerCase()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Opciones del menú */}
+                  <div className="py-1">
+                    <Link 
+                      to="/perfil"
+                      className="flex items-center space-x-3 px-4 py-3 hover:bg-base-200 transition-colors"
+                      onClick={() => setShowProfileDropdown(false)}
+                    >
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <User className="w-4 h-4 text-base-content/60" />
+                      </div>
+                      <span className="text-sm font-medium">Ver perfil</span>
+                    </Link>
+
+                    <div className="border-t border-base-300 my-1"></div>
+
+                    <button 
+                      className="flex items-center space-x-3 px-4 py-3 hover:bg-base-200 transition-colors w-full text-left text-error"
+                      onClick={() => {
+                        setShowProfileDropdown(false)
+                        handleLogout()
+                      }}
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span className="text-sm font-medium">Cerrar sesión @{userProfile?.username}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -330,7 +304,7 @@ const RightPanel = () => {
                         src={suggestedUser.avatar_url}
                         alt={suggestedUser.username || 'Usuario'}
                         name={suggestedUser.username || 'Usuario'}
-                        team={suggestedUser.team} // Agregar equipo del usuario
+                        team={suggestedUser.team}
                         size="sm"
                       />
                       <div className="flex-1 min-w-0">
@@ -358,210 +332,15 @@ const RightPanel = () => {
                   <p className="text-xs">No hay usuarios sugeridos</p>
                 </div>
               )}
-              <button className="text-primary hover:underline text-xs pt-1">
+              <Link 
+                to="/a-quien-seguir"
+                className="text-primary hover:underline text-xs pt-1 block"
+              >
                 Mostrar más
-              </button>
+              </Link>
             </div>
           </div>
         </div>
-
-        {/* Modal de edición de perfil */}
-        {showEditModal && (
-          <dialog className="modal modal-open">
-            <div className="modal-box">
-              <form method="dialog" onSubmit={handleUpdateProfile}>
-                {/* Botón de cerrar */}
-                <button 
-                  type="button"
-                  className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-                  onClick={closeEditModal}
-                >
-                  ✕
-                </button>
-                
-                {/* Título */}
-                <h3 className="font-bold text-lg mb-4">Editar Perfil</h3>
-                
-                {/* Formulario */}
-                <div className="space-y-4">
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">Nombre de usuario</span>
-                    </label>
-                    <input 
-                      type="text"
-                      className="input input-bordered w-full"
-                      value={editFormData.username}
-                      onChange={(e) => setEditFormData(prev => ({
-                        ...prev,
-                        username: e.target.value
-                      }))}
-                      placeholder="Ingresa tu nombre de usuario"
-                      required
-                      disabled={isUpdating}
-                    />
-                    <label className="label">
-                      <span className="label-text-alt text-base-content/70">
-                        Tu nombre de usuario será visible para otros usuarios
-                      </span>
-                    </label>
-                  </div>
-
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">Equipo favorito</span>
-                    </label>
-                    <select 
-                      className="select select-bordered w-full"
-                      value={editFormData.team || ''}
-                      onChange={(e) => setEditFormData(prev => ({
-                        ...prev,
-                        team: e.target.value
-                      }))}
-                      disabled={isUpdating}
-                    >
-                      <option value="">-- Selecciona tu equipo --</option>
-                      {EQUIPOS_PRIMERA.map((equipo) => (
-                        <option key={equipo.archivo} value={equipo.nombre}>
-                          {equipo.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    
-                    {/* Vista previa del escudo seleccionado */}
-                    {editFormData.team && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <TeamBadge team={editFormData.team} size="sm" />
-                        <span className="text-sm text-base-content/70">
-                          Vista previa del escudo
-                        </span>
-                      </div>
-                    )}
-                    
-                    <label className="label">
-                      <span className="label-text-alt text-base-content/70">
-                        Selecciona tu equipo de Primera División
-                      </span>
-                    </label>
-                  </div>
-
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">Foto de perfil</span>
-                    </label>
-                    
-                    {/* Vista previa del avatar actual o seleccionado */}
-                    <div className="flex items-center space-x-4 mb-3">
-                      <Avatar 
-                        src={avatarPreview}
-                        alt="Avatar actual"
-                        name={userProfile?.username || 'Usuario'}
-                        size="lg"
-                      />
-                      <div className="flex-1">
-                        {avatarFile ? (
-                          <div>
-                            <p className="text-sm font-medium text-success">
-                              📎 {avatarFile.name}
-                            </p>
-                            <p className="text-xs text-base-content/70">
-                              {getReadableFileSize(avatarFile.size)}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-base-content/70">
-                            {userProfile?.avatar_url ? 'Foto actual' : 'Sin foto de perfil'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Input de archivo */}
-                    <div className="flex space-x-2">
-                      <label className="btn btn-outline btn-sm flex-1">
-                        📷 Seleccionar foto
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarFileChange}
-                          className="hidden"
-                          disabled={isUpdating}
-                        />
-                      </label>
-                      
-                      {avatarFile && (
-                        <button
-                          type="button"
-                          onClick={removeAvatarPreview}
-                          className="btn btn-ghost btn-sm"
-                          disabled={isUpdating}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                    
-                    <label className="label">
-                      <span className="label-text-alt text-base-content/70">
-                        Formatos: JPEG, PNG, GIF, WebP. Máximo 5MB
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Barra de progreso durante la subida */}
-                  {isUpdating && avatarFile && (
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text-alt">Subiendo imagen...</span>
-                        <span className="label-text-alt">{uploadProgress}%</span>
-                      </label>
-                      <progress 
-                        className="progress progress-primary w-full" 
-                        value={uploadProgress} 
-                        max="100"
-                      ></progress>
-                    </div>
-                  )}
-
-                  {/* Información sobre Storage */}
-                  <div className="alert alert-info">
-                    <span className="text-sm">
-                      💡 <strong>Seguro:</strong> Tus imágenes se guardan de forma segura en nuestro servidor. Puedes cambiarla cuando quieras.
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Botones de acción */}
-                <div className="modal-action">
-                  <button 
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={closeEditModal}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Actualizando...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Actualizar perfil
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </dialog>
-        )}
       </div>
     </div>
   )

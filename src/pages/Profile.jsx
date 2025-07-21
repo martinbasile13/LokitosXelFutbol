@@ -178,10 +178,15 @@ const Profile = () => {
 
     try {
       setIsUpdating(true)
-      setUploadProgress(25)
+      setUploadProgress(10)
 
-      // Simular progreso
-      setTimeout(() => setUploadProgress(50), 200)
+      // Mostrar progreso específico cuando hay archivos
+      if (avatarFile || coverFile) {
+        setUploadProgress(20)
+        setTimeout(() => setUploadProgress(40), 300)
+      } else {
+        setUploadProgress(60)
+      }
       
       const result = await updateUserProfileWithAvatar(
         user.id,
@@ -190,8 +195,8 @@ const Profile = () => {
         coverFile
       )
 
-      if (avatarFile) {
-        setUploadProgress(75)
+      if (avatarFile || coverFile) {
+        setUploadProgress(80)
       }
 
       if (result.success) {
@@ -210,11 +215,26 @@ const Profile = () => {
       } else {
         console.error('Error actualizando perfil:', result.error)
         const errorMsg = result.error?.message || result.error || 'Error desconocido'
-        window.showErrorAlert('Error al actualizar el perfil: ' + errorMsg)
+        
+        // Manejar errores específicos de subida de imágenes
+        if (errorMsg.includes('imagen de perfil') || errorMsg.includes('imagen de portada')) {
+          window.showErrorAlert(`${errorMsg}. Intenta subir las imágenes por separado.`)
+        } else {
+          window.showErrorAlert('Error al actualizar el perfil: ' + errorMsg)
+        }
       }
     } catch (error) {
       console.error('Error actualizando perfil:', error)
-      window.showErrorAlert('Error al actualizar el perfil: ' + error.message)
+      
+      // Mensaje más específico para errores de red o servidor
+      let errorMessage = 'Error al actualizar el perfil'
+      if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
+        errorMessage = 'Error de conexión. Verifica tu internet e intenta nuevamente.'
+      } else if (avatarFile && coverFile) {
+        errorMessage = 'Error subiendo las imágenes. Intenta subir el avatar y la portada por separado.'
+      }
+      
+      window.showErrorAlert(errorMessage)
     } finally {
       setTimeout(() => {
         setIsUpdating(false)

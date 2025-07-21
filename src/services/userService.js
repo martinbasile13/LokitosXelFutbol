@@ -206,7 +206,7 @@ export const getUserProfile = async (userId) => {
   }
 }
 
-// Actualizar perfil de usuario
+// Actualizar perfil de usuario - VERSIÓN SIMPLIFICADA SIN DELAYS
 export const updateUserProfile = async (userId, updatedData) => {
   try {
     console.log('Actualizando perfil para usuario:', userId, updatedData)
@@ -259,75 +259,94 @@ export const updateUserProfile = async (userId, updatedData) => {
   }
 }
 
-// Actualizar perfil con avatar subido
+// Actualizar perfil con avatar subido - VERSIÓN SIMPLIFICADA SIN DELAYS
 export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFile = null, coverFile = null) => {
   try {
-    console.log('Actualizando perfil con archivos para usuario:', userId)
+    console.log('🔄 Actualizando perfil con archivos para usuario:', userId)
+    console.log('📄 Avatar file:', avatarFile ? `${avatarFile.name} (${avatarFile.size} bytes)` : 'null')
+    console.log('📄 Cover file:', coverFile ? `${coverFile.name} (${coverFile.size} bytes)` : 'null')
     
     let avatarUrl = updatedData.avatar_url // Mantener URL actual si no se sube nueva imagen
     let coverUrl = updatedData.cover_image_url // Mantener URL actual si no se sube nueva imagen
     
-    // Si hay un archivo de avatar, subirlo primero
-    if (avatarFile) {
-      console.log('Subiendo nuevo avatar...')
-      
-      // Obtener avatar actual para eliminarlo después
-      const currentProfile = await getUserProfile(userId)
-      const currentAvatarUrl = currentProfile?.avatar_url
-      
-      // Subir nueva imagen
-      const uploadResult = await uploadAvatar(avatarFile, userId)
-      
-      if (!uploadResult.success) {
-        return { success: false, error: uploadResult.error }
-      }
-      
-      avatarUrl = uploadResult.data.publicUrl
-      console.log('Avatar subido exitosamente:', avatarUrl)
-      
-      // Eliminar avatar anterior si existe (no bloqueamos si falla)
-      if (currentAvatarUrl && currentAvatarUrl !== avatarUrl) {
-        await deleteAvatar(currentAvatarUrl)
-      }
+    // Obtener perfil actual para manejar URLs anteriores
+    const currentProfile = await getUserProfile(userId)
+    if (!currentProfile) {
+      return { success: false, error: 'No se pudo obtener el perfil actual del usuario' }
     }
 
-    // Si hay un archivo de portada, subirlo a SUPABASE STORAGE
-    if (coverFile) {
-      console.log('Subiendo nueva imagen de portada a Supabase Storage...')
+    const currentAvatarUrl = currentProfile.avatar_url
+    const currentCoverUrl = currentProfile.cover_image_url
+    
+    // Solo proceder si hay archivos que subir
+    if (!avatarFile && !coverFile) {
+      console.log('📋 No hay archivos que subir, solo actualizando campos de texto')
+      return await updateUserProfile(userId, updatedData)
+    }
+    
+    // Subir avatar si existe
+    if (avatarFile) {
+      console.log('📸 Subiendo avatar...')
       
-      // Obtener imagen de portada actual para eliminarla después
-      const currentProfile = await getUserProfile(userId)
-      const currentCoverUrl = currentProfile?.cover_image_url
+      const avatarResult = await uploadAvatar(avatarFile, userId)
       
-      // Subir nueva imagen de portada a Supabase Storage
-      const uploadResult = await uploadCoverImage(coverFile, userId)
-      
-      if (!uploadResult.success) {
-        return { success: false, error: uploadResult.error }
+      if (!avatarResult.success) {
+        console.error('❌ Error subiendo avatar:', avatarResult.error)
+        return { 
+          success: false, 
+          error: `Error al subir la imagen de perfil: ${avatarResult.error}` 
+        }
       }
       
-      coverUrl = uploadResult.data.publicUrl
-      console.log('Imagen de portada subida exitosamente a Supabase:', coverUrl)
+      avatarUrl = avatarResult.data.publicUrl
+      console.log('✅ Avatar subido exitosamente:', avatarUrl)
       
-      // Eliminar imagen anterior si existe (usando la función de Supabase)
-      if (currentCoverUrl && currentCoverUrl !== coverUrl) {
-        await deleteCoverImageFromSupabase(currentCoverUrl)
+      // Eliminar avatar anterior si existe (de forma no bloqueante)
+      if (currentAvatarUrl && currentAvatarUrl !== avatarUrl) {
+        deleteAvatar(currentAvatarUrl).catch(err => 
+          console.warn('⚠️ Error eliminando avatar anterior:', err)
+        )
       }
     }
     
-    // Actualizar perfil en la base de datos
+    // Subir portada si existe
+    if (coverFile) {
+      console.log('🖼️ Subiendo imagen de portada...')
+      
+      const coverResult = await uploadCoverImage(coverFile, userId)
+      
+      if (!coverResult.success) {
+        console.error('❌ Error subiendo imagen de portada:', coverResult.error)
+        return { 
+          success: false, 
+          error: `Error al subir la imagen de portada: ${coverResult.error}` 
+        }
+      }
+      
+      coverUrl = coverResult.data.publicUrl
+      console.log('✅ Imagen de portada subida exitosamente:', coverUrl)
+      
+      // Eliminar imagen de portada anterior si existe (de forma no bloqueante)
+      if (currentCoverUrl && currentCoverUrl !== coverUrl) {
+        deleteCoverImageFromSupabase(currentCoverUrl).catch(err => 
+          console.warn('⚠️ Error eliminando imagen de portada anterior:', err)
+        )
+      }
+    }
+    
+    // Preparar campos para actualizar en la base de datos
     const updateFields = {}
     
-    if (updatedData.username !== undefined) {
-      updateFields.username = updatedData.username
+    if (updatedData.username !== undefined && updatedData.username.trim()) {
+      updateFields.username = updatedData.username.trim()
     }
     if (updatedData.team !== undefined) {
       updateFields.team = updatedData.team
     }
-    if (avatarUrl !== undefined) {
+    if (avatarUrl !== undefined && avatarUrl !== currentAvatarUrl) {
       updateFields.avatar_url = avatarUrl
     }
-    if (coverUrl !== undefined) {
+    if (coverUrl !== undefined && coverUrl !== currentCoverUrl) {
       updateFields.cover_image_url = coverUrl
     }
     if (updatedData.bio !== undefined) {
@@ -343,6 +362,18 @@ export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFil
       updateFields.birth_date = updatedData.birth_date
     }
     
+    // Solo actualizar si hay campos que cambiar
+    if (Object.keys(updateFields).length === 0) {
+      return { 
+        success: true, 
+        data: currentProfile,
+        message: 'No hay cambios que aplicar'
+      }
+    }
+    
+    console.log('📋 Actualizando perfil en base de datos con campos:', updateFields)
+    
+    // Actualizar perfil en la base de datos
     const { data, error } = await supabase
       .from('profiles')
       .update(updateFields)
@@ -351,16 +382,19 @@ export const updateUserProfileWithAvatar = async (userId, updatedData, avatarFil
       .single()
 
     if (error) {
-      console.error('Error actualizando perfil:', error)
-      return { success: false, error }
+      console.error('❌ Error actualizando perfil en base de datos:', error)
+      return { 
+        success: false, 
+        error: `Error al actualizar el perfil: ${error.message}` 
+      }
     }
 
-    console.log('Perfil actualizado exitosamente:', data)
+    console.log('✅ Perfil actualizado exitosamente:', data)
     return { success: true, data }
     
   } catch (error) {
-    console.error('Error en updateUserProfileWithAvatar:', error)
-    return { success: false, error }
+    console.error('💥 Error crítico en updateUserProfileWithAvatar:', error)
+    return { success: false, error: error.message }
   }
 }
 

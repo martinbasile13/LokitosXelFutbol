@@ -5,7 +5,9 @@ import AlertSystem from './components/AlertSystem'
 import ParaTi from './pages/ParaTi'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
-import UserProfile from './pages/UserProfile' // Nueva página para ver perfiles de otros usuarios
+import UserProfile from './pages/UserProfile'
+import Notificaciones from './pages/Notificaciones'
+import AQuienSeguir from './pages/AQuienSeguir' // Nueva página
 import Auth from './pages/Auth'
 import './Styles/index.css'
 
@@ -35,17 +37,6 @@ const Explorar = () => (
   </div>
 )
 
-const Notificaciones = () => (
-  <div className="min-h-screen flex items-center justify-center bg-base-100">
-    <div className="text-center">
-      <h1 className="text-4xl font-bold mb-4">🔔 Notificaciones</h1>
-      <p className="text-lg text-base-content/70">
-        Tus notificaciones aparecerán aquí
-      </p>
-    </div>
-  </div>
-)
-
 const Mensajes = () => (
   <div className="min-h-screen flex items-center justify-center bg-base-100">
     <div className="text-center">
@@ -61,7 +52,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-base-100" data-theme="night">
+        <div className="min-h-screen bg-base-100" data-theme="dim">
           {/* Sistema de alertas global */}
           <AlertSystem />
           
@@ -88,6 +79,7 @@ function App() {
                   {/* Rutas de navegación */}
                   <Route path="/explorar" element={<Explorar />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
+                  <Route path="/a-quien-seguir" element={<AQuienSeguir />} />
                   <Route path="/mensajes" element={<Mensajes />} />
                   
                   {/* Ruta catch-all */}

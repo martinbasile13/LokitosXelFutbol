@@ -104,8 +104,10 @@ export const uploadToCloudflare = async (file, folder = 'posts') => {
   }
 };
 
-// Subir imagen de avatar a Cloudflare R2
-export const uploadAvatar = async (file, userId) => {
+// NUEVAS FUNCIONES PARA SUPABASE STORAGE
+
+// Subir avatar a Supabase Storage con manejo de RLS mejorado
+export const uploadAvatarToSupabase = async (file, userId) => {
   try {
     // Validar archivo antes de subir
     const validation = validateFile(file, 'image');
@@ -113,69 +115,138 @@ export const uploadAvatar = async (file, userId) => {
       return { success: false, error: validation.error };
     }
 
-    console.log('Subiendo avatar:', { fileName: file.name, fileSize: file.size, fileType: file.type });
+    console.log('Subiendo avatar a Supabase Storage:', { fileName: file.name, fileSize: file.size, fileType: file.type });
 
-    // Subir archivo a Cloudflare R2
-    const uploadResult = await uploadToCloudflare(file, 'avatars');
-    
-    if (!uploadResult.success) {
-      return { success: false, error: uploadResult.error };
+    // Generar nombre único del archivo con timestamp más específico
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const fileName = `avatar_${userId}_${timestamp}_${randomId}.${fileExtension}`;
+
+    console.log('Nombre del archivo:', fileName);
+    console.log('Bucket de destino: avatars');
+
+    // Intentar subida con reintentos en caso de error RLS - SIN DELAYS
+    let uploadAttempts = 0;
+    const maxAttempts = 3;
+    let lastError = null;
+
+    while (uploadAttempts < maxAttempts) {
+      uploadAttempts++;
+      
+      try {
+        console.log(`Intento ${uploadAttempts} de subida de avatar...`);
+
+        // Subir a Supabase Storage en el bucket 'avatars'
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type
+          });
+
+        if (error) {
+          lastError = error;
+          console.error(`Error en intento ${uploadAttempts}:`, {
+            error: error,
+            message: error.message,
+            statusCode: error.statusCode,
+            fileName: fileName
+          });
+
+          // Si es un error RLS, intentar de nuevo sin delay
+          if (error.message.includes('row-level security') || error.message.includes('policy') || error.statusCode === '403') {
+            console.log(`Error RLS detectado en intento ${uploadAttempts}, reintentando inmediatamente...`);
+            continue;
+          } else {
+            // Si no es error RLS, no reintentar
+            break;
+          }
+        }
+
+        console.log('Avatar subido exitosamente:', data);
+
+        // Obtener URL pública
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        console.log('URL pública generada:', urlData.publicUrl);
+
+        return {
+          success: true,
+          data: {
+            path: data.path,
+            publicUrl: urlData.publicUrl,
+            fileName: file.name
+          }
+        };
+
+      } catch (attemptError) {
+        lastError = attemptError;
+        console.error(`Error en intento ${uploadAttempts}:`, attemptError);
+        
+        // Si es el último intento, salir del bucle
+        if (uploadAttempts >= maxAttempts) {
+          break;
+        }
+      }
     }
 
-    console.log('Avatar subido exitosamente a Cloudflare:', uploadResult.data);
-
-    return {
-      success: true,
-      data: {
-        path: uploadResult.data.key,
-        publicUrl: uploadResult.data.url,
-        fileName: file.name
-      }
+    // Si llegamos aquí, todos los intentos fallaron
+    console.error('Todos los intentos de subida fallaron. Último error:', lastError);
+    return { 
+      success: false, 
+      error: `Error de Supabase Storage después de ${maxAttempts} intentos: ${lastError?.message || 'Error desconocido'}` 
     };
 
   } catch (error) {
-    console.error('Error en uploadAvatar:', error);
-    return { success: false, error: error.message };
+    console.error('Error en uploadAvatarToSupabase:', error);
+    return { success: false, error: `Error inesperado: ${error.message}` };
   }
 };
 
-// Subir media para posts (imágenes y videos)
-export const uploadPostMedia = async (file) => {
+// Eliminar avatar de Supabase Storage
+export const deleteAvatarFromSupabase = async (avatarUrl) => {
   try {
-    const validation = validateFile(file);
-    if (!validation.isValid) {
-      return { success: false, error: validation.error };
+    if (!avatarUrl) {
+      return { success: true }; // No hay nada que eliminar
     }
 
-    console.log('Subiendo media del post:', { fileName: file.name, fileSize: file.size, fileType: file.type });
+    // Extraer el path del archivo de la URL de Supabase
+    const urlParts = avatarUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
 
-    const uploadResult = await uploadToCloudflare(file, 'posts');
-    
-    if (!uploadResult.success) {
-      return { success: false, error: uploadResult.error };
+    if (!fileName || !fileName.startsWith('avatar_')) {
+      console.warn('URL de avatar no válida para eliminar:', avatarUrl);
+      return { success: true }; // Continuar sin error
     }
 
-    console.log('Media del post subido exitosamente:', uploadResult.data);
+    console.log('Eliminando avatar de Supabase:', fileName);
 
-    return {
-      success: true,
-      data: {
-        path: uploadResult.data.key,
-        publicUrl: uploadResult.data.url,
-        fileName: file.name,
-        type: file.type.startsWith('image/') ? 'image' : 'video'
-      }
-    };
+    // Eliminar de Supabase Storage
+    const { error } = await supabase.storage
+      .from('avatars')
+      .remove([fileName]);
+
+    if (error) {
+      console.error('Error eliminando avatar de Supabase:', error);
+      // No retornar error para no bloquear la actualización del perfil
+      return { success: true };
+    }
+
+    console.log('Avatar eliminado exitosamente de Supabase');
+    return { success: true };
 
   } catch (error) {
-    console.error('Error en uploadPostMedia:', error);
-    return { success: false, error: error.message };
+    console.error('Error en deleteAvatarFromSupabase:', error);
+    // No retornar error para no bloquear la actualización del perfil
+    return { success: true };
   }
 };
 
-// NUEVAS FUNCIONES PARA SUPABASE STORAGE
-
-// Subir imagen de portada a Supabase Storage
+// Subir imagen de portada a Supabase Storage con manejo de RLS mejorado
 export const uploadCoverImageToSupabase = async (file, userId) => {
   try {
     // Validar archivo antes de subir
@@ -186,50 +257,88 @@ export const uploadCoverImageToSupabase = async (file, userId) => {
 
     console.log('Subiendo imagen de portada a Supabase Storage:', { fileName: file.name, fileSize: file.size, fileType: file.type });
 
-    // Generar nombre único del archivo
+    // Generar nombre único del archivo con timestamp más específico
     const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `cover_${userId}_${Date.now()}.${fileExtension}`;
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const fileName = `cover_${userId}_${timestamp}_${randomId}.${fileExtension}`;
 
     console.log('Nombre del archivo:', fileName);
     console.log('Bucket de destino: covers');
 
-    // Subir a Supabase Storage en el bucket 'covers'
-    const { data, error } = await supabase.storage
-      .from('covers')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type
-      });
+    // Intentar subida con reintentos en caso de error RLS - SIN DELAYS
+    let uploadAttempts = 0;
+    const maxAttempts = 3;
+    let lastError = null;
 
-    if (error) {
-      console.error('Error detallado subiendo imagen de portada a Supabase:', {
-        error: error,
-        message: error.message,
-        statusCode: error.statusCode,
-        fileName: fileName,
-        fileSize: file.size,
-        fileType: file.type
-      });
-      return { success: false, error: `Error de Supabase Storage: ${error.message}` };
+    while (uploadAttempts < maxAttempts) {
+      uploadAttempts++;
+      
+      try {
+        console.log(`Intento ${uploadAttempts} de subida de portada...`);
+
+        // Subir a Supabase Storage en el bucket 'covers'
+        const { data, error } = await supabase.storage
+          .from('covers')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type
+          });
+
+        if (error) {
+          lastError = error;
+          console.error(`Error en intento ${uploadAttempts}:`, {
+            error: error,
+            message: error.message,
+            statusCode: error.statusCode,
+            fileName: fileName
+          });
+
+          // Si es un error RLS, intentar de nuevo sin delay
+          if (error.message.includes('row-level security') || error.message.includes('policy') || error.statusCode === '403') {
+            console.log(`Error RLS detectado en intento ${uploadAttempts}, reintentando inmediatamente...`);
+            continue;
+          } else {
+            // Si no es error RLS, no reintentar
+            break;
+          }
+        }
+
+        console.log('Portada subida exitosamente:', data);
+
+        // Obtener URL pública
+        const { data: urlData } = supabase.storage
+          .from('covers')
+          .getPublicUrl(fileName);
+
+        console.log('URL pública generada:', urlData.publicUrl);
+
+        return {
+          success: true,
+          data: {
+            path: data.path,
+            publicUrl: urlData.publicUrl,
+            fileName: file.name
+          }
+        };
+
+      } catch (attemptError) {
+        lastError = attemptError;
+        console.error(`Error en intento ${uploadAttempts}:`, attemptError);
+        
+        // Si es el último intento, salir del bucle
+        if (uploadAttempts >= maxAttempts) {
+          break;
+        }
+      }
     }
 
-    console.log('Datos de subida exitosa:', data);
-
-    // Obtener URL pública
-    const { data: urlData } = supabase.storage
-      .from('covers')
-      .getPublicUrl(fileName);
-
-    console.log('URL pública generada:', urlData.publicUrl);
-
-    return {
-      success: true,
-      data: {
-        path: data.path,
-        publicUrl: urlData.publicUrl,
-        fileName: file.name
-      }
+    // Si llegamos aquí, todos los intentos fallaron
+    console.error('Todos los intentos de subida fallaron. Último error:', lastError);
+    return { 
+      success: false, 
+      error: `Error de Supabase Storage después de ${maxAttempts} intentos: ${lastError?.message || 'Error desconocido'}` 
     };
 
   } catch (error) {
@@ -277,7 +386,11 @@ export const deleteCoverImageFromSupabase = async (coverUrl) => {
   }
 };
 
-// Actualizar la función uploadCoverImage para usar Supabase
+// Actualizar las funciones principales para usar Supabase
+export const uploadAvatar = async (file, userId) => {
+  return await uploadAvatarToSupabase(file, userId);
+};
+
 export const uploadCoverImage = async (file, userId) => {
   return await uploadCoverImageToSupabase(file, userId);
 };
