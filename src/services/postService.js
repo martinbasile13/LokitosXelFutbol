@@ -841,3 +841,121 @@ export const voteComment = async (commentId, userId, voteType) => {
     return { success: false, error: error.message }
   }
 }
+
+// Obtener feed de videos (solo posts con video_url)
+export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = null) => {
+  try {
+    console.log('🎯 getVideoFeed iniciado:', { limit, offset, startFromPostId })
+    
+    let query = supabase
+      .from('posts')
+      .select(`
+        id,
+        title,
+        content,
+        video_url,
+        views_count,
+        likes_count,
+        created_at,
+        updated_at,
+        user_id
+      `)
+      .not('video_url', 'is', null) // Solo posts con video
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    // Si se especifica un post inicial, obtener videos a partir de ahí
+    if (startFromPostId) {
+      // Primero obtener la fecha del post inicial
+      const { data: startPost } = await supabase
+        .from('posts')
+        .select('created_at')
+        .eq('id', startFromPostId)
+        .single()
+
+      if (startPost) {
+        // Obtener videos desde ese post hacia atrás y hacia adelante
+        query = supabase
+          .from('posts')
+          .select(`
+            id,
+            title,
+            content,
+            video_url,
+            views_count,
+            likes_count,
+            created_at,
+            updated_at,
+            user_id
+          `)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(limit)
+      }
+    }
+
+    const { data: videos, error: videosError } = await query
+
+    if (videosError) {
+      console.error('Error obteniendo videos:', videosError)
+      return { success: false, error: videosError }
+    }
+
+    if (!videos || videos.length === 0) {
+      console.log('No hay videos disponibles')
+      return { success: true, posts: [] }
+    }
+
+    // Obtener los IDs únicos de usuarios y posts
+    const userIds = [...new Set(videos.map(video => video.user_id))]
+    const postIds = videos.map(video => video.id)
+    
+    // Obtener perfiles de usuarios y conteo de comentarios
+    const [profilesResult, commentsCountResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, username, experience_points, team, avatar_url')
+        .in('id', userIds),
+      
+      // Contar comentarios por post
+      supabase
+        .from('comments')
+        .select('post_id')
+        .in('post_id', postIds)
+        .then(({ data }) => {
+          const counts = {}
+          data?.forEach(comment => {
+            counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
+          })
+          return counts
+        })
+    ])
+
+    const { data: profiles, error: profilesError } = profilesResult
+
+    if (profilesError) {
+      console.error('Error obteniendo perfiles:', profilesError)
+    }
+
+    // Combinar videos con perfiles y datos de interacciones
+    const videosWithData = videos.map(video => {
+      const profile = profiles?.find(p => p.id === video.user_id)
+      const commentsCount = commentsCountResult[video.id] || 0
+      
+      return {
+        ...video,
+        profiles: profile || null,
+        comments_count: commentsCount,
+        views_count: video.views_count || 0,
+        likes_count: video.likes_count || 0,
+        is_liked: false // Se actualizará cuando el usuario interactúe
+      }
+    })
+
+    console.log('✅ Videos obtenidos:', videosWithData.length)
+    return { success: true, posts: videosWithData }
+  } catch (error) {
+    console.error('Error en getVideoFeed:', error)
+    return { success: false, error }
+  }
+}

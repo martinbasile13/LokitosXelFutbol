@@ -102,15 +102,6 @@ const UserProfile = () => {
     alert('Función de reportar usuario en desarrollo. ¡Gracias por tu feedback!')
   }
 
-  const tabs = [
-    { id: 'posts', label: 'Posts', count: userStats.posts },
-    { id: 'replies', label: 'Replies' },
-    { id: 'highlights', label: 'Highlights' },
-    { id: 'articles', label: 'Articles' },
-    { id: 'media', label: 'Media' },
-    { id: 'likes', label: 'Likes' }
-  ]
-
   if (loading) {
     return (
       <div className="min-h-screen bg-base-100 flex items-center justify-center">
@@ -160,7 +151,7 @@ const UserProfile = () => {
                 </button>
                 <div>
                   <h1 className="text-xl font-bold">{userProfile?.username || 'Usuario'}</h1>
-                  <p className="text-sm text-base-content/60">{userStats.posts} posts</p>
+                  {/* Remover contador de posts */}
                 </div>
               </div>
             </div>
@@ -198,6 +189,14 @@ const UserProfile = () => {
                       {(userProfile?.username || 'Usuario').charAt(0).toUpperCase()}
                     </span>
                   )}
+                </div>
+                
+                {/* XP debajo del avatar - diseño compacto y centrado */}
+                <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg border-2 border-white inline-flex items-center justify-center min-w-0">
+                    <span className="whitespace-nowrap">{userProfile?.experience_points || 0}</span>
+                    <span className="ml-1 whitespace-nowrap">XP</span>
+                  </div>
                 </div>
               </div>
 
@@ -274,9 +273,21 @@ const UserProfile = () => {
                   )}
                 </div>
 
-                {/* Lado derecho: Website */}
-                <div className="flex flex-col items-end space-y-1 ml-4">
-                  {/* Website si existe - URL COMPLETA */}
+                {/* Lado derecho: Estadísticas de seguimiento */}
+                <div className="flex flex-col items-end space-y-2 ml-4">
+                  {/* Seguidores y Siguiendo */}
+                  <div className="flex items-center space-x-4 text-sm">
+                    <div className="text-center">
+                      <div className="font-bold text-lg">{userStats.followers}</div>
+                      <div className="text-base-content/70">Seguidores</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-lg">{userStats.following}</div>
+                      <div className="text-base-content/70">Siguiendo</div>
+                    </div>
+                  </div>
+                  
+                  {/* Website si existe - Debajo de las estadísticas */}
                   {userProfile?.website && (
                     <a 
                       href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
@@ -319,49 +330,14 @@ const UserProfile = () => {
                   </span>
                 </div>
               </div>
-
-              {/* Estadísticas estilo Twitter - NUEVA SECCIÓN */}
-              <div className="mt-6 flex items-center space-x-6 py-3 border-t border-base-300">
-                <div className="flex items-center space-x-1">
-                  <span className="font-bold text-lg">{userStats.followers}</span>
-                  <span className="text-base-content/70 text-sm">
-                    <strong>Seguidores</strong>
-                  </span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <span className="font-bold text-lg">{userStats.following}</span>
-                  <span className="text-base-content/70 text-sm">
-                    <strong>Siguiendo</strong>
-                  </span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <span className="font-bold text-lg">{userStats.posts}</span>
-                  <span className="text-base-content/70 text-sm">
-                    <strong>Posts</strong>
-                  </span>
-                </div>
-              </div>
             </div>
 
-            {/* Pestañas de navegación */}
+            {/* Pestaña única - Solo Posts centrado con contador */}
             <div className="border-b border-base-300">
-              <div className="flex overflow-x-auto">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-shrink-0 px-4 py-4 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-base-content/60 hover:text-base-content'
-                    }`}
-                  >
-                    {tab.label}
-                    {tab.count !== undefined && (
-                      <span className="ml-1">({tab.count})</span>
-                    )}
-                  </button>
-                ))}
+              <div className="flex justify-center">
+                <div className="px-6 py-4 text-sm font-medium border-b-2 border-primary text-primary">
+                  Posts ({userStats.posts})
+                </div>
               </div>
             </div>
 

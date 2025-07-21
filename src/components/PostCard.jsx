@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import ImageModal from './ImageModal'
@@ -14,11 +14,13 @@ import {
   Edit,
   Flag,
   UserPlus,
-  Loader2
+  Loader2,
+  Play
 } from 'lucide-react'
 
 const PostCard = ({ post, onDelete }) => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [postData, setPostData] = useState(post)
@@ -232,6 +234,23 @@ const PostCard = ({ post, onDelete }) => {
     // La vista ya se registró automáticamente al renderizar el componente
   }
 
+  // Manejar clic en video para móvil
+  const handleVideoClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Detectar si es móvil
+    const isMobile = window.innerWidth < 768
+    
+    if (isMobile && postData.video_url) {
+      // En móvil, navegar al visor de videos tipo TikTok
+      navigate(`/video/${postData.id}`)
+    } else {
+      // En desktop, comportamiento normal (abrir en nueva pestaña)
+      window.open(postData.video_url, '_blank')
+    }
+  }
+
   // Manejar tecla ESC para cerrar modal
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -331,25 +350,45 @@ const PostCard = ({ post, onDelete }) => {
               />
             </div>
           )}
-          
-          {/* Mostrar video si existe - CON PROPORCIONES ORIGINALES Y BORDES NEGROS */}
-          {postData.video_url && (
-            <div className="mt-3 flex justify-center bg-black rounded-lg">
-              <video 
-                src={postData.video_url} 
-                controls 
-                className="max-w-full max-h-96 object-contain rounded-lg"
-                onError={(e) => {
-                  console.error('Error cargando video:', postData.video_url);
-                  e.target.style.display = 'none';
-                }}
-              >
-                Tu navegador no soporta el elemento video.
-              </video>
-            </div>
-          )}
         </div>
       </Link>
+
+      {/* Video FUERA del Link para manejar clics independientemente */}
+      {postData.video_url && (
+        <div className="px-6 pb-3">
+          <div 
+            className="mt-3 flex justify-center bg-black rounded-lg relative group cursor-pointer"
+            onClick={handleVideoClick}
+          >
+            <video 
+              src={postData.video_url} 
+              controls={window.innerWidth >= 768} // Solo mostrar controles en desktop
+              className="max-w-full max-h-96 object-contain rounded-lg"
+              onError={(e) => {
+                console.error('Error cargando video:', postData.video_url);
+                e.target.style.display = 'none';
+              }}
+              poster="" // Opcional: agregar thumbnail
+            >
+              Tu navegador no soporta el elemento video.
+            </video>
+            
+            {/* Overlay para móvil - estilo TikTok */}
+            <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+              <div className="p-4 rounded-full bg-black/50 backdrop-blur-sm md:bg-white/80 md:hover:bg-white transition-colors">
+                <Play className="w-6 h-6 text-white md:text-black ml-1" />
+              </div>
+            </div>
+            
+            {/* Indicador de video para móvil */}
+            <div className="absolute top-2 right-2 md:hidden">
+              <div className="px-2 py-1 bg-black/70 rounded text-white text-xs font-medium">
+                VIDEO
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Acciones - Fuera del Link - DISEÑO DISTRIBUIDO DE PUNTA A PUNTA */}
       <div className="flex items-center justify-between px-6 pb-4">

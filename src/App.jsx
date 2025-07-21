@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
 import AlertSystem from './components/AlertSystem'
+import VideoViewer from './components/VideoViewer'
 import ParaTi from './pages/ParaTi'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
@@ -70,6 +71,7 @@ function App() {
                   {/* Rutas principales */}
                   <Route path="/para-ti" element={<ParaTi />} />
                   <Route path="/post/:postId" element={<PostDetail />} />
+                  <Route path="/video/:postId" element={<VideoViewer />} />
                   <Route path="/partidos" element={<Partidos />} />
                   
                   {/* Rutas de perfil */}

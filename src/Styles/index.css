@@ -4,3 +4,133 @@
   themes: all;
 }
 
+/* Estilos para el visor de videos tipo TikTok */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none;  /* Safari and Chrome */
+}
+
+/* Mejorar la experiencia de scroll en móvil */
+.snap-y {
+  scroll-snap-type: y mandatory;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+/* Asegurar que los videos en móvil ocupen toda la pantalla */
+@media (max-width: 768px) {
+  .video-container {
+    height: 100vh;
+    height: 100dvh; /* Para navegadores modernos que soportan dvh */
+  }
+}
+
+/* Estilos para los overlays de video */
+.video-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.7) 0%,
+    transparent 20%,
+    transparent 80%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+}
+
+/* Animaciones suaves para los botones de acción */
+.action-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-button:hover {
+  transform: scale(1.1);
+}
+
+.action-button:active {
+  transform: scale(0.95);
+}
+
+/* Efectos de glassmorphism para los elementos flotantes */
+.glass-effect {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Asegurar que el texto se vea bien sobre videos */
+.text-shadow {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Limitador de líneas para el texto del post */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mejoras para el scroll snap en iOS */
+@supports (-webkit-touch-callout: none) {
+  .snap-container {
+    -webkit-scroll-snap-type: y mandatory;
+    scroll-snap-type: y mandatory;
+  }
+  
+  .snap-item {
+    -webkit-scroll-snap-align: start;
+    scroll-snap-align: start;
+  }
+}
+
+/* Mejoras responsivas para diferentes tamaños de pantalla */
+@media (max-width: 320px) {
+  /* iPhone SE y pantallas muy pequeñas */
+  .video-viewer-content {
+    padding: 12px;
+  }
+  
+  .action-button div {
+    padding: 8px;
+  }
+  
+  .action-button div svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (min-width: 321px) and (max-width: 375px) {
+  /* iPhone estándar */
+  .video-viewer-content {
+    padding: 16px;
+  }
+}
+
+@media (min-width: 376px) and (max-width: 414px) {
+  /* iPhone Plus/Pro */
+  .video-viewer-content {
+    padding: 18px;
+  }
+}
+
+@media (min-width: 415px) {
+  /* Pantallas grandes de móvil */
+  .video-viewer-content {
+    padding: 20px;
+  }
+}
+
