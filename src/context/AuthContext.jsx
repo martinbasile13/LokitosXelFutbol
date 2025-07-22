@@ -26,7 +26,6 @@ export const AuthProvider = ({ children }) => {
     
     // Verificar caché primero - velocidad instantánea
     if (profileCacheRef.current.has(userId)) {
-      console.log('⚡ Perfil desde caché (instantáneo):', userId)
       return profileCacheRef.current.get(userId)
     }
     
@@ -192,4 +191,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   )
-} 
+}

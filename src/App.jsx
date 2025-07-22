@@ -38,16 +38,6 @@ const Explorar = () => (
   </div>
 )
 
-const Mensajes = () => (
-  <div className="min-h-screen flex items-center justify-center bg-base-100">
-    <div className="text-center">
-      <h1 className="text-4xl font-bold mb-4">✉️ Mensajes</h1>
-      <p className="text-lg text-base-content/70">
-        Sistema de mensajería en desarrollo
-      </p>
-    </div>
-  </div>
-)
 
 function App() {
   return (
@@ -82,7 +72,6 @@ function App() {
                   <Route path="/explorar" element={<Explorar />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/a-quien-seguir" element={<AQuienSeguir />} />
-                  <Route path="/mensajes" element={<Mensajes />} />
                   
                   {/* Ruta catch-all */}
                   <Route path="*" element={<Navigate to="/para-ti" replace />} />

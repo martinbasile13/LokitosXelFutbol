@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getVideoFeed, likePost, unlikePost, addPostView } from '../services/postService'
@@ -26,6 +26,18 @@ const VideoViewer = () => {
   const [isMuted, setIsMuted] = useState(false)
   const containerRef = useRef(null)
   const videoRefs = useRef([])
+  
+  // Estados para scroll infinito inteligente
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMoreVideos, setHasMoreVideos] = useState(true)
+  const [currentOffset, setCurrentOffset] = useState(0)
+  const isLoadingRef = useRef(false)
+  
+  // Configuración del buffer inteligente
+  const BUFFER_SIZE = 15 // Máximo de videos en memoria
+  const LOAD_THRESHOLD = 3 // Cargar más cuando queden 3 videos por ver
+  const CLEANUP_THRESHOLD = 20 // Limpiar cuando superamos 20 videos
+  const VIDEOS_PER_LOAD = 5 // Cantidad de videos a cargar cada vez
 
   useEffect(() => {
     loadVideos()
@@ -46,9 +58,14 @@ const VideoViewer = () => {
   const loadVideos = async () => {
     try {
       setLoading(true)
-      const result = await getVideoFeed(20, 0, postId)
+      isLoadingRef.current = true
+      
+      const result = await getVideoFeed(BUFFER_SIZE, 0, postId)
       if (result.success && result.posts.length > 0) {
         setVideos(result.posts)
+        setCurrentOffset(BUFFER_SIZE)
+        setHasMoreVideos(result.posts.length === BUFFER_SIZE)
+        
         // Encontrar el índice del video inicial
         if (postId) {
           const index = result.posts.findIndex(video => video.id === parseInt(postId))
@@ -59,8 +76,58 @@ const VideoViewer = () => {
       console.error('Error cargando videos:', error)
     } finally {
       setLoading(false)
+      isLoadingRef.current = false
     }
   }
+
+  const loadMoreVideos = useCallback(async () => {
+    if (isLoadingRef.current || !hasMoreVideos) return
+    
+    try {
+      setLoadingMore(true)
+      isLoadingRef.current = true
+      
+      const result = await getVideoFeed(VIDEOS_PER_LOAD, currentOffset)
+      
+      if (!result.success || result.posts.length === 0) {
+        setHasMoreVideos(false)
+        return
+      }
+
+      const newVideos = result.posts
+
+      setVideos(prevVideos => {
+        const updatedVideos = [...prevVideos, ...newVideos]
+        
+        // Limpiar videos antiguos si superamos el threshold
+        if (updatedVideos.length > CLEANUP_THRESHOLD) {
+          const videosToRemove = updatedVideos.length - BUFFER_SIZE
+          const cleanedVideos = updatedVideos.slice(videosToRemove)
+          
+          // Ajustar índice actual y offset
+          const newCurrentIndex = Math.max(0, currentIndex - videosToRemove)
+          setCurrentIndex(newCurrentIndex)
+          setCurrentOffset(prev => prev + VIDEOS_PER_LOAD)
+          
+          // Limpiar referencias de videos antiguos
+          videoRefs.current = videoRefs.current.slice(videosToRemove)
+          
+          return cleanedVideos
+        }
+        
+        setCurrentOffset(prev => prev + VIDEOS_PER_LOAD)
+        return updatedVideos
+      })
+      
+      setHasMoreVideos(newVideos.length === VIDEOS_PER_LOAD)
+      
+    } catch (error) {
+      console.error('Error cargando más videos:', error)
+    } finally {
+      setLoadingMore(false)
+      isLoadingRef.current = false
+    }
+  }, [currentOffset, hasMoreVideos, currentIndex])
 
   const handleScroll = (e) => {
     const { scrollTop, clientHeight } = e.target
@@ -82,6 +149,12 @@ const VideoViewer = () => {
 
       // Actualizar URL sin reemplazar historial
       window.history.replaceState(null, '', `/video/${videos[newIndex].id}`)
+      
+      // Cargar más videos cuando nos acercamos al final
+      const remaining = videos.length - newIndex - 1
+      if (remaining <= LOAD_THRESHOLD && hasMoreVideos && !isLoadingRef.current) {
+        loadMoreVideos()
+      }
     }
   }
 
@@ -185,12 +258,19 @@ const VideoViewer = () => {
             <ArrowLeft className="w-5 h-5 text-white" />
           </button>
           
-          <button 
-            onClick={toggleMute}
-            className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
-          >
-            {isMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* Indicador de posición y carga */}
+            <div className="text-xs text-white/70 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full">
+              {currentIndex + 1} de {videos.length}{hasMoreVideos ? '+' : ''}
+            </div>
+            
+            <button 
+              onClick={toggleMute}
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+            >
+              {isMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -203,16 +283,16 @@ const VideoViewer = () => {
           scrollBehavior: 'smooth',
           WebkitOverflowScrolling: 'touch',
           height: '100vh',
-          height: '100dvh' // Usar dvh para mejor compatibilidad móvil
+          height: '100dvh'
         }}
       >
         {videos.map((video, index) => (
           <div 
-            key={video.id}
+            key={`${video.id}-${index}`} // Key único para evitar problemas al limpiar
             className="relative w-full snap-start bg-black flex items-center justify-center"
             style={{ 
               height: '100vh',
-              height: '100dvh' // Usar dvh para cada video también
+              height: '100dvh'
             }}
           >
             {/* Video con adaptación automática según orientación */}
@@ -220,28 +300,35 @@ const VideoViewer = () => {
               ref={el => videoRefs.current[index] = el}
               src={video.video_url}
               className={`w-full h-full ${
-                // Detectar orientación del video y aplicar object-fit apropiado
                 videoRefs.current[index]?.videoWidth > videoRefs.current[index]?.videoHeight 
-                  ? 'object-contain' // Video horizontal: mostrar completo (como Twitter)
-                  : 'object-cover'   // Video vertical: llenar pantalla (como TikTok)
+                  ? 'object-contain'
+                  : 'object-cover'
               }`}
               loop
               muted={isMuted}
               playsInline
-              preload={Math.abs(index - currentIndex) <= 1 ? "auto" : "none"}
+              preload={Math.abs(index - currentIndex) <= 1 ? "auto" : "metadata"}
               onClick={togglePlay}
+              onMouseEnter={(e) => {
+                if (index === currentIndex) {
+                  e.target.play().catch(console.error)
+                  setIsPlaying(true)
+                }
+              }}
               onLoadedData={() => {
                 if (index === currentIndex && isPlaying) {
                   videoRefs.current[index]?.play().catch(console.error)
                 }
               }}
               onLoadedMetadata={(e) => {
-                // Forzar re-render cuando se cargan los metadatos para aplicar la clase correcta
                 const video = e.target
                 if (video.videoWidth && video.videoHeight) {
-                  // Trigger re-render para aplicar la clase CSS correcta
                   setVideos(prev => [...prev])
                 }
+              }}
+              style={{
+                WebkitAppearance: 'none',
+                appearance: 'none'
               }}
             />
 
@@ -342,6 +429,45 @@ const VideoViewer = () => {
             </div>
           </div>
         ))}
+        
+        {/* Indicador de carga al final */}
+        {loadingMore && (
+          <div 
+            className="w-full snap-start bg-black flex items-center justify-center"
+            style={{ 
+              height: '100vh',
+              height: '100dvh'
+            }}
+          >
+            <div className="text-white text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+              <p>Cargando más videos...</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Mensaje de fin de videos */}
+        {!hasMoreVideos && videos.length > 0 && !loadingMore && (
+          <div 
+            className="w-full snap-start bg-black flex items-center justify-center"
+            style={{ 
+              height: '100vh',
+              height: '100dvh'
+            }}
+          >
+            <div className="text-white text-center">
+              <div className="text-6xl mb-4">🎬</div>
+              <p className="text-lg mb-2">¡Has visto todos los videos!</p>
+              <p className="text-white/70">Vuelve más tarde para ver contenido nuevo</p>
+              <button 
+                onClick={() => navigate(-1)}
+                className="mt-4 px-6 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

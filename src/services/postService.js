@@ -22,7 +22,6 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
       .range(offset, offset + limit - 1)
 
     if (postsError) {
-      console.error('Error obteniendo posts:', postsError)
       return []
     }
 
@@ -91,10 +90,8 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
       }
     })
 
-    console.log('✅ Posts obtenidos con sistema de likes:', postsWithData)
     return postsWithData
   } catch (error) {
-    console.error('Error en getFeedPosts:', error)
     return []
   }
 }
@@ -125,7 +122,6 @@ export const createPost = async (postData) => {
       .single()
 
     if (postError) {
-      console.error('Error creando post:', postError)
       return { success: false, error: postError }
     }
 
@@ -137,7 +133,6 @@ export const createPost = async (postData) => {
       .single()
 
     if (profileError) {
-      console.error('Error obteniendo perfil:', profileError)
       // Retornar post sin perfil si hay error
       return { 
         success: true, 
@@ -156,76 +151,68 @@ export const createPost = async (postData) => {
 
     return { success: true, data: postWithProfile }
   } catch (error) {
-    console.error('Error en createPost:', error)
     return { success: false, error }
   }
 }
 
 // Eliminar un post
 export const deletePost = async (postId, userId) => {
-  console.log('🗑️ deletePost iniciado:', { postId, userId })
-  
   try {
-    // Primero verificar que el post existe y es del usuario
+    if (!postId || !userId) {
+      throw new Error('postId y userId son requeridos')
+    }
+
+    // Verificar que el post existe y pertenece al usuario
     const { data: existingPost, error: checkError } = await supabase
       .from('posts')
-      .select('id, user_id')
+      .select('user_id')
       .eq('id', postId)
-      .eq('user_id', userId)
       .single()
 
-    console.log('🔍 Verificación del post:', { existingPost, checkError })
-
     if (checkError) {
-      console.error('❌ Error verificando post:', checkError)
-      return { success: false, error: checkError }
+      throw checkError
     }
 
     if (!existingPost) {
-      console.error('❌ Post no encontrado o no pertenece al usuario')
-      return { success: false, error: { message: 'Post no encontrado o sin permisos' } }
+      throw new Error('Post no encontrado')
     }
 
-    // Eliminar dependencias en orden correcto
-    // Primero obtener IDs de comentarios del post
-    console.log('🔍 Obteniendo comentarios del post...')
-    const { data: commentIds } = await supabase
+    if (existingPost.user_id !== userId) {
+      throw new Error('No tienes permisos para eliminar este post')
+    }
+
+    // Primero eliminar comentarios asociados
+    const { data: comments } = await supabase
       .from('comments')
       .select('id')
       .eq('post_id', postId)
 
-    // Ahora eliminar comentarios
-    console.log('🧹 Eliminando comentarios del post...')
-    const { error: commentsError } = await supabase
-      .from('comments')
-      .delete()
-      .eq('post_id', postId)
+    if (comments && comments.length > 0) {
+      const { error: deleteCommentsError } = await supabase
+        .from('comments')
+        .delete()
+        .eq('post_id', postId)
 
-    if (commentsError) {
-      console.warn('⚠️ Error eliminando comentarios:', commentsError)
-      // Continuar aunque falle esto
+      if (deleteCommentsError) {
+        throw deleteCommentsError
+      }
     }
 
-    // Finalmente, eliminar el post
-    console.log('🔄 Procediendo con eliminación del post...')
+    // Ahora eliminar el post
     const { data, error } = await supabase
       .from('posts')
       .delete()
       .eq('id', postId)
       .eq('user_id', userId)
-
-    console.log('📊 Resultado eliminación:', { data, error })
+      .select()
 
     if (error) {
-      console.error('❌ Error eliminando post:', error)
-      return { success: false, error }
+      throw error
     }
 
-    console.log('✅ Post y todas sus dependencias eliminadas exitosamente')
     return { success: true, data }
   } catch (error) {
-    console.error('💥 Error en deletePost:', error)
-    return { success: false, error }
+    return { success: false, error: error.message }
   }
 }
 
@@ -252,7 +239,6 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
       .range(offset, offset + limit - 1)
 
     if (postsError) {
-      console.error('Error obteniendo posts del usuario:', postsError)
       return []
     }
 
@@ -289,10 +275,6 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 
     const { data: profile, error: profileError } = profileResult
 
-    if (profileError) {
-      console.error('Error obteniendo perfil:', profileError)
-    }
-
     // Combinar posts con perfil e interacciones
     const postsWithData = posts.map(post => {
       const postInteractions = interactions[post.id] || {
@@ -306,15 +288,14 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
         profiles: profile || null,
         comments_count: commentsCount,
         views_count: post.views_count || 0,
-        likes_count: post.likes_count || 0, // Usar contadores directos de la tabla posts
-        is_liked: postInteractions.user_vote === 1, // Determinar si el post está "likeado" por el usuario
+        likes_count: post.likes_count || 0,
+        is_liked: postInteractions.user_vote === 1,
         ...postInteractions
       }
     })
 
     return postsWithData
   } catch (error) {
-    console.error('Error en getUserPosts:', error)
     return []
   }
 }
@@ -326,10 +307,7 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 // Registrar vista de un post - NUEVA IMPLEMENTACIÓN EFICAZ
 export const addPostView = async (postId, userId = null) => {
   try {
-    console.log('🎯 addPostView llamada con:', { postId, userId })
-    
     if (!postId) {
-      console.error('❌ postId es requerido')
       return { success: false, error: 'Post ID requerido' }
     }
 
@@ -349,7 +327,6 @@ export const addPostView = async (postId, userId = null) => {
         .rpc('increment_post_views', { post_id: postId })
 
       if (updateError) {
-        console.error('❌ Error con RPC increment_post_views:', updateError)
         // Fallback: obtener valor actual y actualizar
         const { data: currentPost } = await supabase
           .from('posts')
@@ -366,27 +343,21 @@ export const addPostView = async (postId, userId = null) => {
           .select('views_count')
 
         if (finalError) {
-          console.error('❌ Error en fallback final:', finalError)
           return { success: false, error: finalError.message }
         }
 
-        console.log('✅ Vista incrementada con fallback completo:', finalData)
         return { success: true, data: finalData }
       }
 
-      console.log('✅ Vista incrementada con RPC:', updateData)
       return { success: true, data: updateData }
     }
 
     if (error) {
-      console.error('❌ Error incrementando vistas:', error)
       return { success: false, error: error.message }
     }
 
-    console.log('✅ Vista incrementada exitosamente:', data)
     return { success: true, data }
   } catch (error) {
-    console.error('💥 Error en addPostView:', error)
     return { success: false, error: error.message }
   }
 }
@@ -394,8 +365,6 @@ export const addPostView = async (postId, userId = null) => {
 // Dar like a un post - IMPLEMENTACIÓN CORREGIDA
 export const likePost = async (postId, userId) => {
   try {
-    console.log('🎯 likePost iniciado:', { postId, userId })
-
     // Verificar si ya existe un like de este usuario (sin .single())
     const { data: existingLikes, error: checkError } = await supabase
       .from('post_likes')
@@ -404,12 +373,10 @@ export const likePost = async (postId, userId) => {
       .eq('user_id', userId)
 
     if (checkError) {
-      console.error('❌ Error verificando like existente:', checkError)
       return { success: false, error: checkError }
     }
 
     if (existingLikes && existingLikes.length > 0) {
-      console.log('⚠️ El usuario ya ha dado like a este post')
       return { success: false, error: { message: 'Ya has dado like a este post' } }
     }
 
@@ -423,7 +390,6 @@ export const likePost = async (postId, userId) => {
       .select('post_id, user_id')
 
     if (error) {
-      console.error('❌ Error registrando like:', error)
       return { success: false, error }
     }
 
@@ -432,7 +398,6 @@ export const likePost = async (postId, userId) => {
       .rpc('increment_post_likes', { post_id: postId })
 
     if (updateError) {
-      console.error('❌ Error incrementando contador de likes:', updateError)
       // Si falla la función SQL, hacer fallback manual
       const { data: currentPost } = await supabase
         .from('posts')
@@ -448,10 +413,8 @@ export const likePost = async (postId, userId) => {
         .eq('id', postId)
     }
 
-    console.log('✅ Like registrado exitosamente:', data)
     return { success: true, data }
   } catch (error) {
-    console.error('💥 Error en likePost:', error)
     return { success: false, error: error.message }
   }
 }
@@ -459,8 +422,6 @@ export const likePost = async (postId, userId) => {
 // Quitar like a un post - IMPLEMENTACIÓN CORREGIDA
 export const unlikePost = async (postId, userId) => {
   try {
-    console.log('🎯 unlikePost iniciado:', { postId, userId })
-
     // Eliminar el like de la tabla post_likes
     const { data, error } = await supabase
       .from('post_likes')
@@ -470,13 +431,11 @@ export const unlikePost = async (postId, userId) => {
       .select('post_id, user_id')
 
     if (error) {
-      console.error('❌ Error quitando like:', error)
       return { success: false, error }
     }
 
     // Si no se eliminó ninguna fila, el like no existía
     if (!data || data.length === 0) {
-      console.log('⚠️ No había like para quitar')
       return { success: false, error: { message: 'No has dado like a este post' } }
     }
 
@@ -485,7 +444,6 @@ export const unlikePost = async (postId, userId) => {
       .rpc('decrement_post_likes', { post_id: postId })
 
     if (updateError) {
-      console.error('❌ Error decrementando contador de likes:', updateError)
       // Si falla la función SQL, hacer fallback manual
       const { data: currentPost } = await supabase
         .from('posts')
@@ -501,10 +459,8 @@ export const unlikePost = async (postId, userId) => {
         .eq('id', postId)
     }
 
-    console.log('✅ Like quitado exitosamente:', data)
     return { success: true, data }
   } catch (error) {
-    console.error('💥 Error en unlikePost:', error)
     return { success: false, error: error.message }
   }
 }
@@ -512,10 +468,7 @@ export const unlikePost = async (postId, userId) => {
 // Obtener datos de interacciones - SUPER SIMPLIFICADO (sin necesidad de rastrear votos individuales)
 export const getPostsInteractions = async (postIds, userId = null) => {
   try {
-    console.log('🎯 getPostsInteractions:', { postIds, userId })
-
     if (!postIds || postIds.length === 0) {
-      console.log('❌ No hay postIds para procesar')
       return {}
     }
 
@@ -528,10 +481,8 @@ export const getPostsInteractions = async (postIds, userId = null) => {
       }
     })
 
-    console.log('✅ getPostsInteractions resultado final:', result)
     return result
   } catch (error) {
-    console.error('💥 Error en getPostsInteractions:', error)
     return {}
   }
 }
@@ -543,7 +494,9 @@ export const getPostsInteractions = async (postIds, userId = null) => {
 // Obtener un post por ID con datos de interacciones
 export const getPostById = async (postId, userId = null) => {
   try {
-    console.log('🎯 getPostById:', { postId, userId })
+    if (!postId) {
+      throw new Error('postId es requerido')
+    }
 
     // Obtener post con contadores directos
     const { data: post, error: postError } = await supabase
@@ -564,7 +517,6 @@ export const getPostById = async (postId, userId = null) => {
       .single()
 
     if (postError) {
-      console.error('❌ Error obteniendo post:', postError)
       throw postError
     }
 
@@ -611,19 +563,15 @@ export const getPostById = async (postId, userId = null) => {
       is_liked: isLiked
     }
 
-    console.log('✅ Post obtenido:', postWithData)
-    return postWithData
+    return { success: true, data: postWithData }
   } catch (error) {
-    console.error('💥 Error en getPostById:', error)
-    throw error
+    return { success: false, error: error.message }
   }
 }
 
 // Obtener comentarios de un post
 export const getPostComments = async (postId, userId = null) => {
   try {
-    console.log('🎯 getPostComments:', { postId, userId })
-
     const { data: comments, error: commentsError } = await supabase
       .from('comments')
       .select(`
@@ -649,7 +597,6 @@ export const getPostComments = async (postId, userId = null) => {
       .order('created_at', { ascending: true })
 
     if (commentsError) {
-      console.error('❌ Error obteniendo comentarios:', commentsError)
       return { success: false, error: commentsError }
     }
 
@@ -687,7 +634,7 @@ export const getPostComments = async (postId, userId = null) => {
           ...comment,
           upvotes: comment.upvotes_count || 0,
           downvotes: comment.downvotes_count || 0,
-          user_vote: null, // Siempre null porque no rastreamos votos individuales
+          user_vote: null,
           replies: (replies || []).map(reply => ({
             ...reply,
             upvotes: reply.upvotes_count || 0,
@@ -698,10 +645,8 @@ export const getPostComments = async (postId, userId = null) => {
       })
     )
 
-    console.log('✅ Comentarios obtenidos:', commentsWithReplies.length)
     return { success: true, data: commentsWithReplies }
   } catch (error) {
-    console.error('💥 Error en getPostComments:', error)
     return { success: false, error }
   }
 }
@@ -709,8 +654,6 @@ export const getPostComments = async (postId, userId = null) => {
 // Obtener comentarios de un post
 export const getCommentsByPost = async (postId) => {
   try {
-    console.log('🎯 getCommentsByPost iniciado para post:', postId)
-
     // Obtener comentarios básicos primero - SIN parent_id
     const { data: comments, error: commentsError } = await supabase
       .from('comments')
@@ -719,18 +662,15 @@ export const getCommentsByPost = async (postId) => {
       .order('created_at', { ascending: true })
 
     if (commentsError) {
-      console.error('Error obteniendo comentarios:', commentsError)
       throw commentsError
     }
 
     if (!comments || comments.length === 0) {
-      console.log('No hay comentarios para este post')
       return []
     }
 
     // Obtener los IDs únicos de usuarios
     const userIds = [...new Set(comments.map(comment => comment.user_id))]
-    console.log('Obteniendo perfiles para usuarios:', userIds)
 
     // Obtener perfiles de usuarios por separado
     const { data: profiles, error: profilesError } = await supabase
@@ -749,10 +689,8 @@ export const getCommentsByPost = async (postId) => {
       profiles: profiles?.find(profile => profile.id === comment.user_id) || null
     }))
 
-    console.log('✅ Comentarios obtenidos exitosamente:', commentsWithProfiles.length)
     return commentsWithProfiles
   } catch (error) {
-    console.error('Error en getCommentsByPost:', error)
     throw error
   }
 }
@@ -776,7 +714,6 @@ export const createComment = async (commentData) => {
       .single()
 
     if (error) {
-      console.error('Error creando comentario:', error)
       return { success: false, error }
     }
 
@@ -799,7 +736,6 @@ export const createComment = async (commentData) => {
 
     return { success: true, data }
   } catch (error) {
-    console.error('Error en createComment:', error)
     return { success: false, error }
   }
 }
@@ -807,8 +743,6 @@ export const createComment = async (commentData) => {
 // Votar en un comentario - IMPLEMENTACIÓN SIMPLE SIN RAW
 export const voteComment = async (commentId, userId, voteType) => {
   try {
-    console.log('🎯 voteComment iniciado:', { commentId, userId, voteType })
-
     const field = voteType === 'up' ? 'upvotes_count' : 'downvotes_count'
     
     // Obtener valor actual primero
@@ -830,14 +764,11 @@ export const voteComment = async (commentId, userId, voteType) => {
       .select('upvotes_count, downvotes_count')
 
     if (error) {
-      console.error('❌ Error incrementando contador:', error)
       return { success: false, error: error }
     }
 
-    console.log('✅ Voto en comentario registrado exitosamente:', data)
     return { success: true, action: 'created', voteType, data }
   } catch (error) {
-    console.error('💥 Error en voteComment:', error)
     return { success: false, error: error.message }
   }
 }
@@ -845,8 +776,6 @@ export const voteComment = async (commentId, userId, voteType) => {
 // Obtener feed de videos (solo posts con video_url)
 export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = null) => {
   try {
-    console.log('🎯 getVideoFeed iniciado:', { limit, offset, startFromPostId })
-    
     let query = supabase
       .from('posts')
       .select(`
@@ -897,12 +826,10 @@ export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = nul
     const { data: videos, error: videosError } = await query
 
     if (videosError) {
-      console.error('Error obteniendo videos:', videosError)
       return { success: false, error: videosError }
     }
 
     if (!videos || videos.length === 0) {
-      console.log('No hay videos disponibles')
       return { success: true, posts: [] }
     }
 
@@ -952,10 +879,8 @@ export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = nul
       }
     })
 
-    console.log('✅ Videos obtenidos:', videosWithData.length)
     return { success: true, posts: videosWithData }
   } catch (error) {
-    console.error('Error en getVideoFeed:', error)
     return { success: false, error }
   }
 }

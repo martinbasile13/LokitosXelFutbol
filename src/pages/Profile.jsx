@@ -8,6 +8,7 @@ import TeamBadge from '../components/TeamBadge'
 import PostCard from '../components/PostCard'
 import Sidebar from '../components/Sidebar'
 import RightPanel from '../components/RightPanel'
+import ImageCropper from '../components/ImageCropper'
 import { 
   ArrowLeft, 
   MapPin, 
@@ -44,6 +45,11 @@ const Profile = () => {
   const [coverPreview, setCoverPreview] = useState(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Estados para el ImageCropper
+  const [showImageCropper, setShowImageCropper] = useState(false)
+  const [cropperType, setCropperType] = useState('avatar') // 'avatar' o 'cover'
+  const [originalImageSrc, setOriginalImageSrc] = useState(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -119,13 +125,14 @@ const Profile = () => {
       return
     }
 
-    // Crear preview
+    // Abrir ImageCropper para avatar
     const reader = new FileReader()
     reader.onload = (e) => {
-      setAvatarPreview(e.target.result)
+      setOriginalImageSrc(e.target.result)
+      setCropperType('avatar')
+      setShowImageCropper(true)
     }
     reader.readAsDataURL(file)
-    setAvatarFile(file)
   }
 
   const handleCoverFileChange = (e) => {
@@ -139,23 +146,44 @@ const Profile = () => {
       return
     }
 
-    // Crear preview
+    // Abrir ImageCropper para portada
     const reader = new FileReader()
     reader.onload = (e) => {
-      setCoverPreview(e.target.result)
+      setOriginalImageSrc(e.target.result)
+      setCropperType('cover')
+      setShowImageCropper(true)
     }
     reader.readAsDataURL(file)
-    setCoverFile(file)
   }
 
-  const removeAvatarPreview = () => {
-    setAvatarFile(null)
-    setAvatarPreview(userProfile?.avatar_url || null)
+  // Manejar el resultado del recorte
+  const handleCropComplete = (croppedFile) => {
+    if (cropperType === 'avatar') {
+      setAvatarFile(croppedFile)
+      // Crear preview de la imagen recortada
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setAvatarPreview(e.target.result)
+      }
+      reader.readAsDataURL(croppedFile)
+    } else if (cropperType === 'cover') {
+      setCoverFile(croppedFile)
+      // Crear preview de la imagen recortada
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setCoverPreview(e.target.result)
+      }
+      reader.readAsDataURL(croppedFile)
+    }
+    
+    setShowImageCropper(false)
+    setOriginalImageSrc(null)
   }
 
-  const removeCoverPreview = () => {
-    setCoverFile(null)
-    setCoverPreview(userProfile?.cover_image_url || null)
+  // Cancelar el recorte
+  const handleCropCancel = () => {
+    setShowImageCropper(false)
+    setOriginalImageSrc(null)
   }
 
   const handleUpdateProfile = async (e) => {
@@ -507,7 +535,7 @@ const Profile = () => {
 
       {/* Modal de edición de perfil - Estilo Twitter */}
       {showEditModal && (
-        <dialog className="modal modal-open">
+        <dialog className="modal modal-open z-[100]">
           <div className="modal-box max-w-xl w-full mx-4 p-0 bg-base-100 rounded-2xl overflow-hidden max-h-[90vh]">
             {/* Header del modal - FIJO */}
             <div className="flex items-center justify-between p-4 border-b border-base-300 sticky top-0 bg-base-100 z-10">
@@ -764,6 +792,17 @@ const Profile = () => {
             onClick={closeEditModal}
           ></div>
         </dialog>
+      )}
+
+      {/* Image Cropper - Editor de imágenes con medidas específicas */}
+      {showImageCropper && (
+        <ImageCropper
+          src={originalImageSrc}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+          type={cropperType}
+          isOpen={showImageCropper}
+        />
       )}
     </>
   )

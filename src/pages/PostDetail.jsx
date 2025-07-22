@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getPostById, getCommentsByPost, createComment, likePost, unlikePost, addPostView } from '../services/postService'
@@ -6,6 +6,7 @@ import Avatar from '../components/Avatar'
 import TeamBadge from '../components/TeamBadge'
 import Sidebar from '../components/Sidebar'
 import RightPanel from '../components/RightPanel'
+import { applyVideoPreferences } from '../services/videoPreferences'
 import { 
   ArrowLeft, 
   MessageCircle, 
@@ -14,7 +15,10 @@ import {
   Share,
   Loader2,
   Camera,
-  Smile
+  Smile,
+  Play,
+  Volume2,
+  VolumeX
 } from 'lucide-react'
 
 const PostDetail = () => {
@@ -29,6 +33,15 @@ const PostDetail = () => {
   const [isLiking, setIsLiking] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [viewRegistered, setViewRegistered] = useState(false)
+  
+  // Estados para control de video
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [isVideoMuted, setIsVideoMuted] = useState(true)
+  const [showVideoControls, setShowVideoControls] = useState(false)
+  const [videoDuration, setVideoDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const videoRef = useRef(null)
 
   useEffect(() => {
     if (postId) {
@@ -63,6 +76,27 @@ const PostDetail = () => {
       return () => clearTimeout(timer)
     }
   }, [post?.id, user?.id, viewRegistered])
+
+  // Aplicar preferencias de video al cargar
+  useEffect(() => {
+    if (videoRef.current) {
+      const video = videoRef.current
+      const handleLoadedMetadata = () => {
+        applyVideoPreferences(video)
+      }
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata)
+      
+      // Si el video ya está cargado, aplicar inmediatamente
+      if (video.readyState >= 1) {
+        applyVideoPreferences(video)
+      }
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      }
+    }
+  }, [post?.video_url])
 
   const loadPost = async () => {
     try {
@@ -238,6 +272,123 @@ const PostDetail = () => {
     )
   }
 
+  // Funciones de control de video
+  const toggleVideoPlay = () => {
+    const video = videoRef.current
+    if (video) {
+      if (video.paused) {
+        video.play().then(() => {
+          setIsVideoPlaying(true)
+        }).catch(console.error)
+      } else {
+        video.pause()
+        setIsVideoPlaying(false)
+      }
+    }
+  }
+
+  const toggleVideoMute = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const video = videoRef.current
+    if (video) {
+      const newMutedState = !video.muted
+      video.muted = newMutedState
+      setIsVideoMuted(newMutedState)
+      console.log('🔊 Audio toggled:', newMutedState ? 'Muted' : 'Unmuted')
+    }
+  }
+
+  const openVideoFullscreen = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const video = videoRef.current
+    if (video) {
+      if (video.requestFullscreen) {
+        video.requestFullscreen()
+      } else if (video.webkitRequestFullscreen) {
+        video.webkitRequestFullscreen()
+      } else if (video.msRequestFullscreen) {
+        video.msRequestFullscreen()
+      }
+    }
+  }
+
+  const handleVideoTimeUpdate = () => {
+    const video = videoRef.current
+    if (video && !isDragging) {
+      setCurrentTime(video.currentTime)
+    }
+  }
+
+  const handleVideoLoadedMetadata = () => {
+    const video = videoRef.current
+    if (video) {
+      setVideoDuration(video.duration)
+      console.log('📹 Video duration:', video.duration)
+    }
+  }
+
+  const handleProgressClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const video = videoRef.current
+    const progressBar = e.currentTarget
+    const rect = progressBar.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const progressWidth = rect.width
+    const clickRatio = clickX / progressWidth
+    const newTime = clickRatio * videoDuration
+    
+    console.log('🎯 Progress click:', { clickRatio, newTime, videoDuration })
+    
+    if (video && videoDuration > 0) {
+      video.currentTime = newTime
+      setCurrentTime(newTime)
+    }
+  }
+
+  const handleProgressMouseDown = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+    handleProgressClick(e)
+    
+    const handleMouseMove = (moveEvent) => {
+      const video = videoRef.current
+      const progressBar = e.currentTarget
+      const rect = progressBar.getBoundingClientRect()
+      const clickX = moveEvent.clientX - rect.left
+      const progressWidth = rect.width
+      const clickRatio = Math.max(0, Math.min(1, clickX / progressWidth))
+      const newTime = clickRatio * videoDuration
+      
+      if (video && videoDuration > 0) {
+        video.currentTime = newTime
+        setCurrentTime(newTime)
+      }
+    }
+    
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+    
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const formatVideoTime = (seconds) => {
+    if (!seconds || isNaN(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
   return (
     <>
       <div className="min-h-screen bg-base-100 flex justify-center">
@@ -323,126 +474,181 @@ const PostDetail = () => {
                     </div>
                   )}
                   
-                  {/* Video si existe */}
+                  {/* Video si existe - CON CONTROLES NATIVOS */}
                   {post.video_url && (
-                    <div className="mt-4 flex justify-center bg-black rounded-lg">
-                      <video 
-                        src={post.video_url} 
-                        controls 
-                        className="max-w-full max-h-96 object-contain rounded-lg"
-                        onError={(e) => {
-                          console.error('Error cargando video:', post.video_url);
-                          e.target.style.display = 'none';
-                        }}
-                      >
-                        Tu navegador no soporta el elemento video.
-                      </video>
+                    <div className="mt-4 flex justify-center">
+                      <div className="relative group cursor-pointer overflow-hidden rounded-xl border border-base-300 bg-black">
+                        <video 
+                          ref={videoRef}
+                          src={post.video_url} 
+                          controls
+                          loop
+                          muted={isVideoMuted}
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-auto object-contain"
+                          style={{
+                            maxHeight: '500px', // Altura máxima como Twitter
+                            minHeight: '200px'  // Altura mínima para videos muy anchos
+                          }}
+                          onError={(e) => {
+                            console.error('Error cargando video:', post.video_url);
+                            e.target.style.display = 'none';
+                          }}
+                          onLoadedMetadata={(e) => {
+                            handleVideoLoadedMetadata()
+                            const video = e.target
+                            if (video.videoWidth && video.videoHeight) {
+                              // Calcular la altura apropiada manteniendo proporción
+                              const aspectRatio = video.videoWidth / video.videoHeight
+                              const containerWidth = video.parentElement.clientWidth
+                              
+                              if (aspectRatio > 2) {
+                                // Video muy horizontal: altura mínima
+                                video.style.height = '200px'
+                                video.style.objectFit = 'cover'
+                              } else if (aspectRatio < 0.6) {
+                                // Video muy vertical: altura máxima
+                                video.style.height = '500px'
+                                video.style.objectFit = 'contain'
+                              } else {
+                                // Video normal: altura automática basada en proporción
+                                const calculatedHeight = Math.min(500, Math.max(200, containerWidth / aspectRatio))
+                                video.style.height = `${calculatedHeight}px`
+                                video.style.objectFit = 'contain'
+                              }
+                            }
+                          }}
+                          onTimeUpdate={handleVideoTimeUpdate}
+                          onPause={() => setIsVideoPlaying(false)}
+                          onPlay={() => setIsVideoPlaying(true)}
+                        >
+                          Tu navegador no soporta el elemento video.
+                        </video>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Fecha */}
-                <div className="text-base-content/60 text-sm mb-4 pb-4 border-b border-base-300">
+                {/* Fecha y hora */}
+                <div className="text-base-content/60 text-sm mb-4 border-b border-base-300 pb-4">
                   {formatFullDate(post.created_at)}
                 </div>
 
                 {/* Estadísticas */}
-                <div className="flex items-center space-x-6 py-3 border-b border-base-300">
-                  <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-6 text-sm border-b border-base-300 pb-4 mb-4">
+                  <div className="flex items-center space-x-1">
                     <span className="font-bold">{post.likes_count || 0}</span>
-                    <span className="text-base-content/70 text-sm">Me gusta</span>
+                    <span className="text-base-content/60">Me gusta</span>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     <span className="font-bold">{comments.length}</span>
-                    <span className="text-base-content/70 text-sm">Comentarios</span>
+                    <span className="text-base-content/60">Comentarios</span>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     <span className="font-bold">{post.views_count || 0}</span>
-                    <span className="text-base-content/70 text-sm">Vistas</span>
+                    <span className="text-base-content/60">Vistas</span>
                   </div>
                 </div>
 
-                {/* Acciones */}
-                <div className="flex items-center justify-around py-3">
+                {/* Botones de acción */}
+                <div className="flex items-center justify-around py-2 border-b border-base-300">
                   <button 
-                    className="flex items-center space-x-2 hover:text-blue-500 transition-colors"
-                    onClick={() => document.getElementById('comment-input')?.focus()}
+                    className="flex items-center space-x-3 hover:bg-blue-50 hover:text-blue-500 transition-colors p-3 rounded-full group"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    <span className="text-sm">Comentar</span>
+                    <span className="font-medium">Comentar</span>
                   </button>
 
                   <button 
-                    className={`flex items-center space-x-2 transition-colors ${
-                      post.is_liked 
-                        ? 'text-red-500' 
-                        : 'text-base-content/60 hover:text-red-500'
-                    }`}
                     onClick={handleLike}
                     disabled={isLiking}
+                    className={`flex items-center space-x-3 transition-colors p-3 rounded-full group ${
+                      post.is_liked 
+                        ? 'text-red-500' 
+                        : 'hover:bg-red-50 hover:text-red-500'
+                    }`}
                   >
                     <Heart className={`w-5 h-5 ${post.is_liked ? 'fill-current' : ''}`} />
-                    <span className="text-sm">Me gusta</span>
+                    <span className="font-medium">Me gusta</span>
                   </button>
 
-                  <button className="flex items-center space-x-2 text-base-content/60 hover:text-green-500 transition-colors">
+                  <button className="flex items-center space-x-3 hover:bg-green-50 hover:text-green-500 transition-colors p-3 rounded-full group">
                     <Share className="w-5 h-5" />
-                    <span className="text-sm">Compartir</span>
+                    <span className="font-medium">Compartir</span>
                   </button>
                 </div>
               </div>
 
-              {/* Formulario para nuevo comentario */}
-              {!replyingTo && (
-                <div className="border-b border-base-300 p-4">
-                  <div className="flex space-x-3">
-                    <Avatar 
-                      src={userProfile?.avatar_url}
-                      alt={userProfile?.username || 'Usuario'}
-                      name={userProfile?.username || 'Usuario'}
-                      team={userProfile?.team}
-                      size="md"
-                      className="flex-shrink-0"
-                    />
-                    <div className="flex-1">
-                      <textarea
-                        id="comment-input"
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Escribe tu comentario..."
-                        className="textarea textarea-ghost w-full resize-none focus:outline-none min-h-20 text-lg"
-                      />
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex space-x-2">
-                          <button className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary">
-                            <Camera className="w-4 h-4" />
-                          </button>
-                          <button className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary">
-                            <Smile className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <button
-                          onClick={handleComment}
-                          disabled={!newComment.trim() || isCommenting}
-                          className="btn btn-primary btn-sm rounded-full px-6"
+              {/* Formulario para comentar */}
+              <div className="border-b border-base-300 p-6">
+                <div className="flex space-x-3">
+                  <Avatar 
+                    src={userProfile?.avatar_url}
+                    alt={userProfile?.username || 'Usuario'}
+                    name={userProfile?.username || 'Usuario'}
+                    team={userProfile?.team}
+                    size="md"
+                    className="flex-shrink-0"
+                  />
+                  <div className="flex-1">
+                    {replyingTo && (
+                      <div className="mb-2 p-2 bg-base-200 rounded-lg text-sm">
+                        <span className="text-base-content/60">Respondiendo a </span>
+                        <span className="font-bold">@{replyingTo.profiles?.username}</span>
+                        <button 
+                          onClick={() => setReplyingTo(null)}
+                          className="ml-2 text-error hover:underline"
                         >
-                          {isCommenting ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            'Comentar'
-                          )}
+                          Cancelar
                         </button>
                       </div>
+                    )}
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder={replyingTo ? "Escribe tu respuesta..." : "¿Qué opinas sobre este post?"}
+                      className="textarea textarea-ghost w-full min-h-20 resize-none focus:outline-none text-lg placeholder:text-base-content/40"
+                      rows={3}
+                    />
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex space-x-2">
+                        <button className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors">
+                          <Camera className="w-4 h-4" />
+                        </button>
+                        <button className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors">
+                          <Smile className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={handleComment}
+                        disabled={!newComment.trim() || isCommenting}
+                        className="btn btn-primary rounded-full px-6 disabled:opacity-50"
+                      >
+                        {isCommenting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Comentar'
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Lista de comentarios */}
-              <div>
-                {comments.length > 0 ? (
+              <div className="">
+                {comments.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <MessageCircle className="w-12 h-12 mx-auto text-base-content/30 mb-4" />
+                    <h3 className="text-lg font-bold mb-2">¡Sé el primero en comentar!</h3>
+                    <p className="text-base-content/60">
+                      Comparte tu opinión sobre este post
+                    </p>
+                  </div>
+                ) : (
                   comments.map((comment) => (
-                    <div key={comment.id} className="border-b border-base-300 p-4 hover:bg-base-50 transition-colors">
+                    <div key={comment.id} className="border-b border-base-300 p-6 hover:bg-base-50 transition-colors">
                       <div className="flex space-x-3">
                         <Link to={`/user/${comment.user_id}`}>
                           <Avatar 
@@ -450,38 +656,50 @@ const PostDetail = () => {
                             alt={`Avatar de ${comment.profiles?.username}`}
                             name={comment.profiles?.username || 'Usuario'}
                             team={comment.profiles?.team}
-                            size="sm"
-                            className="hover:scale-105 transition-transform cursor-pointer"
+                            size="md"
+                            className="hover:scale-105 transition-transform cursor-pointer flex-shrink-0"
                           />
                         </Link>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <Link 
                               to={`/user/${comment.user_id}`}
                               className="hover:underline"
                             >
-                              <span className="font-bold text-sm">{comment.profiles?.username || 'Usuario'}</span>
+                              <h4 className="font-bold">{comment.profiles?.username || 'Usuario'}</h4>
                             </Link>
-                            <span className="text-base-content/50 text-sm">@{comment.profiles?.username || 'usuario'}</span>
                             <span className="text-base-content/50">·</span>
                             <span className="text-base-content/50 text-sm">{formatTime(comment.created_at)}</span>
                             {comment.profiles?.team && (
-                              <TeamBadge team={comment.profiles.team} size="xs" />
+                              <TeamBadge team={comment.profiles.team} size="sm" />
                             )}
                           </div>
-                          <p className="text-base-content leading-relaxed break-words whitespace-pre-wrap">
+                          <Link 
+                            to={`/user/${comment.user_id}`}
+                            className="hover:underline"
+                          >
+                            <span className="text-base-content/70 text-sm">@{comment.profiles?.username || 'usuario'}</span>
+                          </Link>
+                          <p className="mt-2 text-base-content leading-relaxed break-words">
                             {comment.content}
                           </p>
+                          <div className="flex items-center space-x-4 mt-3">
+                            <button 
+                              onClick={() => setReplyingTo(comment)}
+                              className="flex items-center space-x-1 text-base-content/60 hover:text-blue-500 transition-colors text-sm"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>Responder</span>
+                            </button>
+                            <button className="flex items-center space-x-1 text-base-content/60 hover:text-red-500 transition-colors text-sm">
+                              <Heart className="w-4 h-4" />
+                              <span>0</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   ))
-                ) : (
-                  <div className="text-center py-12">
-                    <MessageCircle className="w-12 h-12 mx-auto text-base-content/30 mb-4" />
-                    <h3 className="text-lg font-bold mb-2">No hay comentarios aún</h3>
-                    <p className="text-base-content/60">Sé el primero en comentar este post.</p>
-                  </div>
                 )}
               </div>
             </div>
@@ -490,36 +708,6 @@ const PostDetail = () => {
           {/* Panel derecho estilo Twitter - solo visible en pantallas grandes */}
           <div className="hidden lg:block lg:w-96 p-4">
             <RightPanel />
-          </div>
-
-          {/* Navegación móvil fija abajo */}
-          <div className="fixed bottom-0 left-0 right-0 bg-base-100 border-t border-base-300 md:hidden z-50">
-            <div className="flex justify-around py-2">
-              <Link to="/para-ti" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-                </svg>
-                <span className="text-xs mt-1">Inicio</span>
-              </Link>
-              <Link to="/explorar" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                <span className="text-xs mt-1">Buscar</span>
-              </Link>
-              <Link to="/notificaciones" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM6 17H1l5 5v-5z"/>
-                </svg>
-                <span className="text-xs mt-1">Notif</span>
-              </Link>
-              <Link to="/perfil" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
-                <span className="text-xs mt-1">Perfil</span>
-              </Link>
-            </div>
           </div>
         </div>
       </div>

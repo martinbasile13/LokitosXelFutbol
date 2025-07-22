@@ -253,7 +253,9 @@ const PostComposer = ({
                 }`}>
                   <video 
                     src={previewUrl} 
-                    controls 
+                    controls={false}
+                    muted
+                    playsInline
                     className={`max-w-full object-contain rounded-xl transition-all duration-300 ${
                       isComposerFocused ? 'max-h-60 md:max-h-80' : 'max-h-40 md:max-h-48'
                     }`}

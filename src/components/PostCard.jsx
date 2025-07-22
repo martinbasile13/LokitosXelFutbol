@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import ImageModal from './ImageModal'
 import { useAuth } from '../context/AuthContext.jsx'
 import { likePost, unlikePost, addPostView } from '../services/postService'
+import { applyVideoPreferences } from '../services/videoPreferences'
 import { 
   MessageCircle, 
   ChartNoAxesColumn, 
@@ -15,8 +16,13 @@ import {
   Flag,
   UserPlus,
   Loader2,
-  Play
+  Play,
+  Volume2,
+  VolumeX
 } from 'lucide-react'
+
+// Variable global para controlar qué video está reproduciéndose
+let currentPlayingVideo = null
 
 const PostCard = ({ post, onDelete }) => {
   const { user } = useAuth()
@@ -26,28 +32,33 @@ const PostCard = ({ post, onDelete }) => {
   const [postData, setPostData] = useState(post)
   const [viewRegistered, setViewRegistered] = useState(false)
   const [showImageModal, setShowImageModal] = useState(false)
+  const [isVideoVisible, setIsVideoVisible] = useState(false)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [isVideoMuted, setIsVideoMuted] = useState(true) // Empezar silenciado
+  const [hasBeenUnmuted, setHasBeenUnmuted] = useState(false) // Controlar si ya fue desmuteado
+  const [showControls, setShowControls] = useState(false)
+  const [videoDuration, setVideoDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const videoRef = useRef(null)
+  const observerRef = useRef(null)
 
   // Registrar vista automáticamente cuando el post aparece en el feed
   useEffect(() => {
     if (!viewRegistered && postData.id && user?.id) {
       const registerView = async () => {
         try {
-          console.log('🎯 Registrando vista automática para post:', postData.id)
           const result = await addPostView(postData.id, user.id)
-          console.log('📊 Resultado del registro de vista:', result)
           if (result.success) {
-            console.log('✅ Vista registrada exitosamente')
             setViewRegistered(true)
             // Actualizar contador local de vistas
             setPostData(prev => ({
               ...prev,
               views_count: (prev.views_count || 0) + 1
             }))
-          } else {
-            console.error('❌ Error en registro de vista:', result.error)
           }
         } catch (error) {
-          console.error('💥 Error registrando vista automática:', error)
+          console.error('Error registrando vista automática:', error)
         }
       }
       
@@ -79,28 +90,19 @@ const PostCard = ({ post, onDelete }) => {
   const isOwner = user?.id === postData.user_id
 
   const handleCopyLink = () => {
-    console.log('📋 Función copiar enlace iniciada')
     const postUrl = `${window.location.origin}/post/${postData.id}`
-    console.log('📋 URL a copiar:', postUrl)
     
     document.activeElement?.blur()
     
     navigator.clipboard.writeText(postUrl).then(() => {
-      console.log('✅ URL copiada exitosamente')
       alert('📋 ¡Enlace copiado!')
     }).catch((error) => {
-      console.error('❌ Error copiando:', error)
+      console.error('Error copiando:', error)
       prompt('Copia este enlace manualmente:', postUrl)
     })
   }
 
   const handleDelete = async () => {
-    console.log('🗑️ Función eliminar iniciada')
-    console.log('🗑️ onDelete disponible:', !!onDelete)
-    console.log('🗑️ Usuario actual:', user?.id)
-    console.log('🗑️ Propietario del post:', postData.user_id)
-    console.log('🗑️ Es propietario:', isOwner)
-    
     document.activeElement?.blur()
     
     if (!isOwner) {
@@ -117,38 +119,29 @@ const PostCard = ({ post, onDelete }) => {
       cancelText: 'Cancelar'
     })
     
-    console.log('🗑️ Confirmación del usuario:', confirmed)
-    
     if (!confirmed) {
-      console.log('❌ Usuario canceló eliminación')
       return
     }
 
     setIsDeleting(true)
-    console.log('🔄 Iniciando eliminación...')
     
     if (onDelete) {
-      console.log('🔄 Llamando función onDelete con ID:', postData.id)
       onDelete(postData.id).then(() => {
-        console.log('✅ Eliminación completada')
         window.showSuccessAlert('¡Post eliminado exitosamente!')
         setIsDeleting(false)
       }).catch((error) => {
-        console.error('❌ Error en eliminación:', error)
+        console.error('Error en eliminación:', error)
         window.showErrorAlert('Error al eliminar: ' + error.message)
         setIsDeleting(false)
       })
     } else {
-      console.error('❌ Función onDelete no está disponible')
+      console.error('Función onDelete no está disponible')
       window.showErrorAlert('Función de eliminar no disponible')
       setIsDeleting(false)
     }
   }
 
   const handleEdit = () => {
-    console.log('✏️ Función editar iniciada para post:', postData.id)
-    console.log('✏️ Usuario:', user?.id, 'Propietario:', postData.user_id)
-    
     document.activeElement?.blur()
     
     if (!isOwner) {
@@ -160,13 +153,11 @@ const PostCard = ({ post, onDelete }) => {
   }
 
   const handleReport = () => {
-    console.log('🚩 Función reportar iniciada para post:', postData.id)
     document.activeElement?.blur()
     alert('Función de reportar en desarrollo. ¡Gracias por tu feedback!')
   }
 
   const handleFollow = () => {
-    console.log('👥 Función seguir iniciada para usuario:', postData.profiles?.username)
     document.activeElement?.blur()
     alert(`Función de seguir a @${postData.profiles?.username} en desarrollo.`)
   }
@@ -230,25 +221,246 @@ const PostCard = ({ post, onDelete }) => {
   }
 
   const handlePostClick = () => {
-    console.log('🔗 Navegando al post:', postData.id)
     // La vista ya se registró automáticamente al renderizar el componente
   }
 
-  // Manejar clic en video para móvil
-  const handleVideoClick = (e) => {
+  // Intersection Observer para autoplay de videos
+  useEffect(() => {
+    if (postData.video_url && videoRef.current) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              setIsVideoVisible(true)
+              // Pausar video que esté reproduciéndose actualmente
+              if (currentPlayingVideo && currentPlayingVideo !== videoRef.current) {
+                currentPlayingVideo.pause()
+              }
+              // Reproducir este video inmediatamente
+              const video = videoRef.current
+              if (video && entry.isIntersecting) {
+                // Asegurar que esté muteado antes de reproducir
+                video.muted = true
+                setIsVideoMuted(true)
+                
+                // Reproducir inmediatamente con manejo silencioso de errores
+                video.play().then(() => {
+                  currentPlayingVideo = video
+                  setIsVideoPlaying(true)
+                  // Video iniciado exitosamente
+                }).catch((error) => {
+                  // Manejo completamente silencioso del error de autoplay
+                  // Este error es normal y esperado en navegadores modernos
+                  setIsVideoPlaying(false)
+                  // No mostrar ningún log, es comportamiento normal del navegador
+                })
+              }
+            } else {
+              setIsVideoVisible(false)
+              // Pausar video cuando sale del viewport
+              if (videoRef.current) {
+                videoRef.current.pause()
+                setIsVideoPlaying(false)
+                if (currentPlayingVideo === videoRef.current) {
+                  currentPlayingVideo = null
+                }
+              }
+            }
+          })
+        },
+        {
+          threshold: 0.6, // Aumentar threshold para mejor detección
+          rootMargin: '-20px' // Pequeño margen para mejor control
+        }
+      )
+
+      // Observar el video cuando esté disponible
+      if (videoRef.current) {
+        observerRef.current.observe(videoRef.current)
+      }
+
+      return () => {
+        if (observerRef.current && videoRef.current) {
+          observerRef.current.unobserve(videoRef.current)
+        }
+      }
+    }
+  }, [postData.video_url])
+
+  // Limpiar observer al desmontar
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+      // Si este video se estaba reproduciendo, limpiar la referencia global
+      if (currentPlayingVideo === videoRef.current) {
+        currentPlayingVideo = null
+      }
+    }
+  }, [])
+
+  // Funciones de control de video
+  const toggleVideoPlay = () => {
+    const video = videoRef.current
+    if (video) {
+      if (video.paused) {
+        // Pausar cualquier otro video que esté reproduciéndose
+        if (currentPlayingVideo && currentPlayingVideo !== video) {
+          currentPlayingVideo.pause()
+        }
+        video.play().then(() => {
+          currentPlayingVideo = video
+          setIsVideoPlaying(true)
+        }).catch(console.error)
+      } else {
+        video.pause()
+        setIsVideoPlaying(false)
+        if (currentPlayingVideo === video) {
+          currentPlayingVideo = null
+        }
+      }
+    }
+  }
+
+  const toggleVideoMute = (e) => {
     e.preventDefault()
     e.stopPropagation()
     
-    // Detectar si es móvil
-    const isMobile = window.innerWidth < 768
-    
-    if (isMobile && postData.video_url) {
-      // En móvil, navegar al visor de videos tipo TikTok
-      navigate(`/video/${postData.id}`)
-    } else {
-      // En desktop, comportamiento normal (abrir en nueva pestaña)
-      window.open(postData.video_url, '_blank')
+    const video = videoRef.current
+    if (video) {
+      // Asegurar que el video esté cargado antes de cambiar el volumen
+      if (video.readyState >= 1) {
+        const newMutedState = !video.muted
+        video.muted = newMutedState
+        setIsVideoMuted(newMutedState)
+        
+        // Forzar actualización visual
+        setTimeout(() => {
+          setIsVideoMuted(video.muted)
+        }, 50)
+      }
     }
+  }
+
+  const openVideoFullscreen = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const video = videoRef.current
+    if (video) {
+      if (video.requestFullscreen) {
+        video.requestFullscreen()
+      } else if (video.webkitRequestFullscreen) {
+        video.webkitRequestFullscreen()
+      } else if (video.msRequestFullscreen) {
+        video.msRequestFullscreen()
+      }
+    }
+  }
+
+  const handleVideoTimeUpdate = () => {
+    const video = videoRef.current
+    if (video && !isDragging) {
+      setCurrentTime(video.currentTime)
+    }
+  }
+
+  const handleVideoLoadedMetadata = () => {
+    const video = videoRef.current
+    if (video) {
+      setVideoDuration(video.duration)
+    }
+  }
+
+  const handleProgressClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const video = videoRef.current
+    const progressBar = e.currentTarget
+    const rect = progressBar.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const progressWidth = rect.width
+    const clickRatio = clickX / progressWidth
+    const newTime = clickRatio * videoDuration
+    
+    if (video && videoDuration > 0) {
+      video.currentTime = newTime
+      setCurrentTime(newTime)
+    }
+  }
+
+  const handleProgressMouseDown = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+    handleProgressClick(e)
+    
+    const handleMouseMove = (moveEvent) => {
+      const video = videoRef.current
+      const progressBar = e.currentTarget
+      const rect = progressBar.getBoundingClientRect()
+      const clickX = moveEvent.clientX - rect.left
+      const progressWidth = rect.width
+      const clickRatio = Math.max(0, Math.min(1, clickX / progressWidth))
+      const newTime = clickRatio * videoDuration
+      
+      if (video && videoDuration > 0) {
+        video.currentTime = newTime
+        setCurrentTime(newTime)
+      }
+    }
+    
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+    
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const formatVideoTime = (seconds) => {
+    if (!seconds || isNaN(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Manejar clic en video para móvil vs desktop
+  const handleVideoClick = (e) => {
+    // En móvil siempre navegar al formato TikTok
+    const isMobile = window.innerWidth < 768
+    if (isMobile && postData.video_url) {
+      e.preventDefault()
+      e.stopPropagation()
+      navigate(`/video/${postData.id}`)
+      return
+    }
+
+    // En desktop, solo interceptar el primer clic para desmutear
+    if (isVideoMuted && !hasBeenUnmuted) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const video = videoRef.current
+      if (video) {
+        video.muted = false
+        setIsVideoMuted(false)
+        setHasBeenUnmuted(true)
+        console.log('🔊 Video desmuteado al hacer clic (comportamiento Twitter)')
+      }
+    }
+    // Si ya fue desmuteado, permitir que los controles nativos funcionen normalmente
+    // No hacer preventDefault ni stopPropagation
+  }
+
+  const handleImageClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setShowImageModal(true)
   }
 
   // Manejar tecla ESC para cerrar modal
@@ -269,6 +481,28 @@ const PostCard = ({ post, onDelete }) => {
       document.body.style.overflow = 'unset'
     }
   }, [showImageModal])
+
+  // Aplicar preferencias de video al cargar
+  useEffect(() => {
+    // Aplicar preferencias de volumen cuando el video se carga
+    if (videoRef.current) {
+      const video = videoRef.current
+      const handleLoadedMetadata = () => {
+        applyVideoPreferences(video)
+      }
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata)
+      
+      // Si el video ya está cargado, aplicar inmediatamente
+      if (video.readyState >= 1) {
+        applyVideoPreferences(video)
+      }
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      }
+    }
+  }, [postData.video_url])
 
   return (
     <div className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
@@ -330,60 +564,143 @@ const PostCard = ({ post, onDelete }) => {
         {/* Contenido del post */}
         <div className="mt-3">
           <p className="text-base-content leading-relaxed break-words hyphens-auto whitespace-pre-wrap overflow-hidden">{postData.content}</p>
-          
-          {/* Mostrar imagen si existe - CON MODAL */}
-          {postData.image_url && (
-            <div className="mt-3 flex justify-center">
-              <img 
-                src={postData.image_url} 
-                alt="Imagen del post" 
-                className="max-w-full max-h-96 object-contain rounded-lg border border-base-300 cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setShowImageModal(true)
-                }}
-                onError={(e) => {
-                  console.error('Error cargando imagen:', postData.image_url);
-                  e.target.style.display = 'none';
-                }}
-              />
-            </div>
-          )}
         </div>
       </Link>
+
+      {/* Imagen FUERA del Link para manejar clics independientemente */}
+      {postData.image_url && (
+        <div className="px-6 pb-3">
+          <div className="mt-3 flex justify-center">
+            <img 
+              src={postData.image_url} 
+              alt="Imagen del post" 
+              className="max-w-full max-h-96 object-contain rounded-lg border border-base-300 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={handleImageClick}
+              onError={(e) => {
+                console.error('Error cargando imagen:', postData.image_url);
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Video FUERA del Link para manejar clics independientemente */}
       {postData.video_url && (
         <div className="px-6 pb-3">
-          <div 
-            className="mt-3 flex justify-center bg-black rounded-lg relative group cursor-pointer"
-            onClick={handleVideoClick}
-          >
+          <div className="mt-3 relative group cursor-pointer overflow-hidden rounded-xl">
             <video 
+              ref={videoRef}
               src={postData.video_url} 
-              controls={window.innerWidth >= 768} // Solo mostrar controles en desktop
-              className="max-w-full max-h-96 object-contain rounded-lg"
+              controls
+              loop
+              muted // Empezar muteado por defecto
+              autoPlay={false} // Desactivar autoplay nativo del navegador
+              playsInline
+              preload="metadata"
+              className="w-full h-auto object-contain bg-black border-2 border-black rounded-xl"
+              style={{
+                maxHeight: '500px', // Altura máxima como antes
+                minHeight: '200px'   // Altura mínima para videos muy anchos
+              }}
+              onClick={handleVideoClick} // Manejar clics para mutear/desmutear o navegar
               onError={(e) => {
                 console.error('Error cargando video:', postData.video_url);
                 e.target.style.display = 'none';
               }}
-              poster="" // Opcional: agregar thumbnail
+              onLoadedMetadata={(e) => {
+                handleVideoLoadedMetadata()
+                const video = e.target
+                video.muted = true // Asegurar que empiece muteado
+                setIsVideoMuted(true)
+                console.log('🔇 Video configurado para empezar muteado')
+                applyVideoPreferences(video)
+              }}
+              onTimeUpdate={handleVideoTimeUpdate}
+              onPause={() => {
+                setIsVideoPlaying(false)
+                if (currentPlayingVideo === videoRef.current) {
+                  currentPlayingVideo = null
+                }
+              }}
+              onPlay={() => {
+                setIsVideoPlaying(true)
+                // Pausar cualquier otro video que esté reproduciéndose
+                if (currentPlayingVideo && currentPlayingVideo !== videoRef.current) {
+                  currentPlayingVideo.pause()
+                }
+                currentPlayingVideo = videoRef.current
+              }}
             >
               Tu navegador no soporta el elemento video.
             </video>
-            
-            {/* Overlay para móvil - estilo TikTok */}
-            <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-              <div className="p-4 rounded-full bg-black/50 backdrop-blur-sm md:bg-white/80 md:hover:bg-white transition-colors">
-                <Play className="w-6 h-6 text-white md:text-black ml-1" />
+
+            {/* Barra de progreso personalizada */}
+            {showControls && videoDuration > 0 && (
+              <div className="absolute bottom-4 left-4 right-4 bg-black/70 backdrop-blur-sm rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center space-x-2 mb-2">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleVideoPlay()
+                    }}
+                    className="text-white hover:text-blue-400 transition-colors"
+                  >
+                    {isVideoPlaying ? '⏸️' : '▶️'}
+                  </button>
+                  
+                  <button
+                    onClick={toggleVideoMute}
+                    className="text-white hover:text-blue-400 transition-colors"
+                  >
+                    {isVideoMuted ? '🔇' : '🔊'}
+                  </button>
+                  
+                  <button
+                    onClick={openVideoFullscreen}
+                    className="text-white hover:text-blue-400 transition-colors ml-auto"
+                  >
+                    ⛶
+                  </button>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="text-white text-xs min-w-[35px]">
+                    {formatVideoTime(currentTime)}
+                  </span>
+                  
+                  <div 
+                    className="flex-1 h-1 bg-white/30 rounded-full cursor-pointer relative"
+                    onClick={handleProgressClick}
+                    onMouseDown={handleProgressMouseDown}
+                  >
+                    <div 
+                      className="h-full bg-blue-500 rounded-full transition-all duration-150"
+                      style={{ width: `${videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0}%` }}
+                    />
+                    <div 
+                      className="absolute top-1/2 transform -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full shadow-lg transition-all duration-150"
+                      style={{ 
+                        left: `${videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0}%`,
+                        marginLeft: '-6px'
+                      }}
+                    />
+                  </div>
+                  
+                  <span className="text-white text-xs min-w-[35px]">
+                    {formatVideoTime(videoDuration)}
+                  </span>
+                </div>
               </div>
-            </div>
-            
-            {/* Indicador de video para móvil */}
-            <div className="absolute top-2 right-2 md:hidden">
-              <div className="px-2 py-1 bg-black/70 rounded text-white text-xs font-medium">
-                VIDEO
+            )}
+
+            {/* Indicador de mute/unmute para móvil */}
+            <div className="md:hidden absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-black/70 backdrop-blur-sm rounded px-2 py-1">
+                <span className="text-white text-xs">
+                  {isVideoMuted ? '🔇 Toca para activar sonido' : '🔊 Toca para silenciar'}
+                </span>
               </div>
             </div>
           </div>

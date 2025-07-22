@@ -15,7 +15,6 @@ export const getSuggestedUsers = async (currentUserId, limit = 5) => {
     }
 
     const followingIds = followingData?.map(f => f.following_id) || []
-    console.log('Usuarios que ya sigue:', followingIds)
 
     // Obtener usuarios que NO sigue (incluyendo el usuario actual)
     const excludeIds = [currentUserId, ...followingIds]

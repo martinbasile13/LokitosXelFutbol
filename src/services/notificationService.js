@@ -7,8 +7,6 @@ import { supabase } from './supabaseClient'
 // Obtener todas las notificaciones del usuario
 export const getNotifications = async (userId, type = 'all', limit = 20) => {
   try {
-    console.log('🔔 getNotifications:', { userId, type, limit })
-
     let query = supabase
       .from('notifications')
       .select(`
@@ -41,7 +39,6 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
       throw error
     }
 
-    console.log('✅ Notificaciones obtenidas:', data?.length || 0)
     return data || []
   } catch (error) {
     console.error('💥 Error en getNotifications:', error)
@@ -52,8 +49,6 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
 // Obtener nuevos seguidores recientes
 export const getNewFollowers = async (userId, limit = 10) => {
   try {
-    console.log('👥 getNewFollowers:', { userId, limit })
-
     const { data, error } = await supabase
       .from('followers')
       .select(`
@@ -75,7 +70,6 @@ export const getNewFollowers = async (userId, limit = 10) => {
       throw error
     }
 
-    console.log('✅ Nuevos seguidores obtenidos:', data?.length || 0)
     return data || []
   } catch (error) {
     console.error('💥 Error en getNewFollowers:', error)
@@ -86,8 +80,6 @@ export const getNewFollowers = async (userId, limit = 10) => {
 // Obtener likes recientes en posts del usuario
 export const getRecentLikes = async (userId, limit = 10) => {
   try {
-    console.log('❤️ getRecentLikes:', { userId, limit })
-
     const { data, error } = await supabase
       .from('post_likes')
       .select(`
@@ -115,7 +107,6 @@ export const getRecentLikes = async (userId, limit = 10) => {
       throw error
     }
 
-    console.log('✅ Likes recientes obtenidos:', data?.length || 0)
     return data || []
   } catch (error) {
     console.error('💥 Error en getRecentLikes:', error)
@@ -126,8 +117,6 @@ export const getRecentLikes = async (userId, limit = 10) => {
 // Obtener comentarios recientes en posts del usuario
 export const getRecentComments = async (userId, limit = 10) => {
   try {
-    console.log('💬 getRecentComments:', { userId, limit })
-
     const { data, error } = await supabase
       .from('comments')
       .select(`
@@ -156,7 +145,6 @@ export const getRecentComments = async (userId, limit = 10) => {
       throw error
     }
 
-    console.log('✅ Comentarios recientes obtenidos:', data?.length || 0)
     return data || []
   } catch (error) {
     console.error('💥 Error en getRecentComments:', error)
@@ -167,8 +155,6 @@ export const getRecentComments = async (userId, limit = 10) => {
 // Obtener posts recomendados de usuarios que sigue
 export const getRecommendedPosts = async (userId, limit = 5) => {
   try {
-    console.log('⭐ getRecommendedPosts:', { userId, limit })
-
     // Obtener posts de usuarios que sigue
     const { data, error } = await supabase
       .from('posts')
@@ -201,7 +187,6 @@ export const getRecommendedPosts = async (userId, limit = 5) => {
       throw error
     }
 
-    console.log('✅ Posts recomendados obtenidos:', data?.length || 0)
     return data || []
   } catch (error) {
     console.error('💥 Error en getRecommendedPosts:', error)
@@ -216,8 +201,6 @@ export const getRecommendedPosts = async (userId, limit = 5) => {
 // Marcar notificación como leída
 export const markAsRead = async (notificationId) => {
   try {
-    console.log('📖 markAsRead:', notificationId)
-
     const { data, error } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -229,7 +212,6 @@ export const markAsRead = async (notificationId) => {
       throw error
     }
 
-    console.log('✅ Notificación marcada como leída')
     return { success: true, data }
   } catch (error) {
     console.error('💥 Error en markAsRead:', error)
@@ -240,8 +222,6 @@ export const markAsRead = async (notificationId) => {
 // Marcar todas las notificaciones como leídas
 export const markAllAsRead = async (userId) => {
   try {
-    console.log('📖 markAllAsRead:', userId)
-
     const { data, error } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -253,7 +233,6 @@ export const markAllAsRead = async (userId) => {
       throw error
     }
 
-    console.log('✅ Todas las notificaciones marcadas como leídas')
     return { success: true, data }
   } catch (error) {
     console.error('💥 Error en markAllAsRead:', error)
@@ -289,8 +268,6 @@ export const getUnreadCount = async (userId) => {
 // Crear notificación manual de post recomendado
 export const createRecommendedPostNotification = async (userId, postId, actorId) => {
   try {
-    console.log('⭐ createRecommendedPostNotification:', { userId, postId, actorId })
-
     const { data, error } = await supabase
       .from('notifications')
       .insert({
@@ -309,7 +286,6 @@ export const createRecommendedPostNotification = async (userId, postId, actorId)
       throw error
     }
 
-    console.log('✅ Notificación de post recomendado creada')
     return { success: true, data }
   } catch (error) {
     console.error('💥 Error en createRecommendedPostNotification:', error)

@@ -22,7 +22,7 @@ const ImageModal = ({ isOpen, onClose, imageUrl, alt = "Imagen" }) => {
 
   return (
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-90 p-4"
+      className="fixed inset-0 z-[99999] flex items-center justify-center backdrop-blur-md bg-black/60 p-4"
       onClick={handleOverlayClick}
     >
       {/* Header con controles */}
@@ -50,12 +50,12 @@ const ImageModal = ({ isOpen, onClose, imageUrl, alt = "Imagen" }) => {
         </button>
       </div>
 
-      {/* Imagen principal - SIN ESCALAR FORZADAMENTE */}
+      {/* Imagen principal - Con mejor presentación */}
       <div className="relative flex items-center justify-center max-w-full max-h-full">
         <img
           src={imageUrl}
           alt={alt}
-          className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+          className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl border border-white/10"
           onClick={(e) => e.stopPropagation()}
           style={{
             width: 'auto',
@@ -64,8 +64,8 @@ const ImageModal = ({ isOpen, onClose, imageUrl, alt = "Imagen" }) => {
         />
       </div>
 
-      {/* Indicador para cerrar */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white/70 text-sm">
+      {/* Indicador para cerrar - Más elegante */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white/80 text-sm bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full">
         Presiona ESC o haz click fuera para cerrar
       </div>
     </div>
