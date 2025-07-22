@@ -23,7 +23,11 @@ const Sidebar = ({ onOpenPostModal }) => {
       <div className="p-2 py-3">
         <Link to="/" className="flex justify-center xl:justify-start">
           <div className="flex items-center space-x-2 ">
-            <h1 className="text-3xl">LokitosXelFutbol</h1>
+            <img 
+              src="/logo/logo.png" 
+              alt="LokitosXelFutbol" 
+              className="h-15 w-auto"
+            />
           </div>
         </Link>
       </div>
