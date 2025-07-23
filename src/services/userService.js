@@ -421,7 +421,7 @@ export const checkUserProfile = async (userId) => {
 // Obtener posts de un usuario específico
 export const getUserPosts = async (userId) => {
   try {
-    console.log('🎯 getUserPosts en userService - usando sistema de likes')
+    console.log('🎯 getUserPosts en userService - usando sistema de likes y dislikes')
     
     // Obtener posts del usuario directamente con contadores
     const { data: posts, error: postsError } = await supabase
@@ -434,6 +434,7 @@ export const getUserPosts = async (userId) => {
         video_url,
         views_count,
         likes_count,
+        dislikes_count,
         created_at,
         updated_at,
         user_id
@@ -480,7 +481,7 @@ export const getUserPosts = async (userId) => {
       console.error('Error obteniendo perfil:', profileError)
     }
 
-    // Combinar posts con perfil - USANDO CONTADORES DIRECTOS DE LIKES
+    // Combinar posts con perfil - USANDO CONTADORES DIRECTOS DE LIKES Y DISLIKES
     const postsWithData = posts.map(post => {
       const commentsCount = commentsCountResult[post.id] || 0
       
@@ -489,12 +490,15 @@ export const getUserPosts = async (userId) => {
         profiles: profile || null,
         comments_count: commentsCount,
         views_count: post.views_count || 0,
-        likes_count: post.likes_count || 0, // Usar contadores directos de la tabla posts
-        is_liked: false // No rastreamos likes individuales en el perfil, solo contadores
+        likes_count: post.likes_count || 0,
+        dislikes_count: post.dislikes_count || 0,
+        user_vote: 0, // No rastreamos votos individuales en el perfil por defecto
+        is_liked: false,
+        is_disliked: false
       }
     })
 
-    console.log('📊 Posts obtenidos con sistema de likes:', postsWithData)
+    console.log('📊 Posts obtenidos con sistema de likes y dislikes:', postsWithData)
     return postsWithData
   } catch (error) {
     console.error('💥 Error en getUserPosts:', error)

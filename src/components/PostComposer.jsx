@@ -101,8 +101,11 @@ const PostComposer = ({
           ...result.data,
           views_count: 0,
           likes_count: 0,
+          dislikes_count: 0, // Agregar contador de dislikes
           comments_count: 0,
-          is_liked: false
+          user_vote: 0, // Sin voto inicial
+          is_liked: false,
+          is_disliked: false // Agregar estado de dislike
         }
 
         // Limpiar formulario

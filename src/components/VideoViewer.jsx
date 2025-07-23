@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getVideoFeed, likePost, unlikePost, addPostView } from '../services/postService'
+import { getVideoFeed, likePost, dislikePost, addPostView } from '../services/postService'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import { 
@@ -166,7 +166,7 @@ const VideoViewer = () => {
 
     try {
       const result = isLiked 
-        ? await unlikePost(video.id, user.id)
+        ? await dislikePost(video.id, user.id)
         : await likePost(video.id, user.id)
 
       if (result.success) {

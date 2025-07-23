@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 // Obtener posts del feed (ordenados por fecha) con datos de interacciones
 export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
   try {
-    // Obtener los posts básicos CON LIKES_COUNT Y VIEWS_COUNT
+    // Obtener los posts básicos CON LIKES_COUNT, DISLIKES_COUNT Y VIEWS_COUNT
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select(`
@@ -14,6 +14,7 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
         video_url,
         views_count,
         likes_count,
+        dislikes_count,
         created_at,
         updated_at,
         user_id
@@ -32,9 +33,9 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
     // Obtener los IDs únicos de usuarios y posts
     const userIds = [...new Set(posts.map(post => post.user_id))]
     const postIds = posts.map(post => post.id)
-    
-    // Obtener perfiles de usuarios, conteo de comentarios y likes del usuario
-    const [profilesResult, commentsCountResult, userLikesResult] = await Promise.all([
+
+    // Obtener perfiles de usuarios y conteo de comentarios
+    const [profilesResult, commentsCountResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, experience_points, team, avatar_url')
@@ -51,21 +52,7 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
             counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
           })
           return counts
-        }),
-
-      // Obtener likes del usuario si está logueado
-      userId ? supabase
-        .from('post_likes')
-        .select('post_id')
-        .eq('user_id', userId)
-        .in('post_id', postIds)
-        .then(({ data }) => {
-          const userLikes = {}
-          data?.forEach(like => {
-            userLikes[like.post_id] = true
-          })
-          return userLikes
-        }) : Promise.resolve({})
+        })
     ])
 
     const { data: profiles, error: profilesError } = profilesResult
@@ -78,7 +65,6 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
     const postsWithData = posts.map(post => {
       const profile = profiles?.find(p => p.id === post.user_id)
       const commentsCount = commentsCountResult[post.id] || 0
-      const isLikedByUser = userLikesResult[post.id] || false
       
       return {
         ...post,
@@ -86,7 +72,10 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
         comments_count: commentsCount,
         views_count: post.views_count || 0,
         likes_count: post.likes_count || 0,
-        is_liked: isLikedByUser
+        dislikes_count: post.dislikes_count || 0,
+        user_vote: 0, // Los posts no tienen sistema de votos individual
+        is_liked: false,
+        is_disliked: false
       }
     })
 
@@ -216,10 +205,70 @@ export const deletePost = async (postId, userId) => {
   }
 }
 
-// Obtener posts de un usuario específico with datos de interacciones
+// ================================
+// FUNCIONES SIMPLIFICADAS PARA POSTS (SIN SISTEMA DE VOTOS)
+// ================================
+
+// Dar like a un post (incrementar contador directamente)
+export const likePost = async (postId, userId) => {
+  try {
+    // Solo incrementar el contador de likes
+    const { data, error } = await supabase
+      .from('posts')
+      .update({ 
+        likes_count: supabase.raw('likes_count + 1')
+      })
+      .eq('id', postId)
+      .select('likes_count')
+
+    if (error) {
+      return { success: false, error }
+    }
+
+    return { 
+      success: true, 
+      data: { 
+        action: 'liked',
+        likes_count: data[0]?.likes_count || 0
+      }
+    }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// Dar dislike a un post (incrementar contador directamente)
+export const dislikePost = async (postId, userId) => {
+  try {
+    // Solo incrementar el contador de dislikes
+    const { data, error } = await supabase
+      .from('posts')
+      .update({ 
+        dislikes_count: supabase.raw('dislikes_count + 1')
+      })
+      .eq('id', postId)
+      .select('dislikes_count')
+
+    if (error) {
+      return { success: false, error }
+    }
+
+    return { 
+      success: true, 
+      data: { 
+        action: 'disliked',
+        dislikes_count: data[0]?.dislikes_count || 0
+      }
+    }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// Obtener posts de un usuario específico
 export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId = null) => {
   try {
-    // Obtener posts del usuario CON VIEWS_COUNT Y VOTES_COUNT
+    // Obtener posts del usuario CON VIEWS_COUNT, LIKES_COUNT Y DISLIKES_COUNT
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select(`
@@ -230,6 +279,7 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
         video_url,
         views_count,
         likes_count,
+        dislikes_count,
         created_at,
         updated_at,
         user_id
@@ -248,8 +298,8 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 
     const postIds = posts.map(post => post.id)
 
-    // Obtener perfil del usuario, conteo de comentarios e interacciones en paralelo
-    const [profileResult, commentsCountResult, interactions] = await Promise.all([
+    // Obtener perfil del usuario y conteo de comentarios
+    const [profileResult, commentsCountResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, experience_points, team, avatar_url')
@@ -267,20 +317,13 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
             counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
           })
           return counts
-        }),
-      
-      // Obtener solo los likes del usuario (para estado de UI)
-      getPostsInteractions(postIds, currentUserId)
+        })
     ])
 
     const { data: profile, error: profileError } = profileResult
 
     // Combinar posts con perfil e interacciones
     const postsWithData = posts.map(post => {
-      const postInteractions = interactions[post.id] || {
-        user_vote: null
-      }
-      
       const commentsCount = commentsCountResult[post.id] || 0
       
       return {
@@ -289,8 +332,10 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
         comments_count: commentsCount,
         views_count: post.views_count || 0,
         likes_count: post.likes_count || 0,
-        is_liked: postInteractions.user_vote === 1,
-        ...postInteractions
+        dislikes_count: post.dislikes_count || 0,
+        user_vote: 0,
+        is_liked: false,
+        is_disliked: false
       }
     })
 
@@ -301,56 +346,24 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 }
 
 // ================================
-// FUNCIONES DE LIKES Y VIEWS
+// FUNCIONES DE VIEWS
 // ================================
 
-// Registrar vista de un post - NUEVA IMPLEMENTACIÓN EFICAZ
+// Registrar vista de un post
 export const addPostView = async (postId, userId = null) => {
   try {
     if (!postId) {
       return { success: false, error: 'Post ID requerido' }
     }
 
-    // Incrementar contador de vistas directamente en la tabla posts
+    // Incrementar contador de vistas directamente
     const { data, error } = await supabase
       .from('posts')
       .update({ 
-        views_count: 1
+        views_count: supabase.raw('views_count + 1')
       })
       .eq('id', postId)
       .select('views_count')
-
-    // Si no existe views_count, obtener el valor actual y sumar 1
-    if (!error && data && data.length === 0) {
-      // Post no encontrado, intentar con COALESCE en PostgreSQL
-      const { data: updateData, error: updateError } = await supabase
-        .rpc('increment_post_views', { post_id: postId })
-
-      if (updateError) {
-        // Fallback: obtener valor actual y actualizar
-        const { data: currentPost } = await supabase
-          .from('posts')
-          .select('views_count')
-          .eq('id', postId)
-          .single()
-
-        const currentViews = currentPost?.views_count || 0
-        
-        const { data: finalData, error: finalError } = await supabase
-          .from('posts')
-          .update({ views_count: currentViews + 1 })
-          .eq('id', postId)
-          .select('views_count')
-
-        if (finalError) {
-          return { success: false, error: finalError.message }
-        }
-
-        return { success: true, data: finalData }
-      }
-
-      return { success: true, data: updateData }
-    }
 
     if (error) {
       return { success: false, error: error.message }
@@ -362,136 +375,7 @@ export const addPostView = async (postId, userId = null) => {
   }
 }
 
-// Dar like a un post - IMPLEMENTACIÓN CORREGIDA
-export const likePost = async (postId, userId) => {
-  try {
-    // Verificar si ya existe un like de este usuario (sin .single())
-    const { data: existingLikes, error: checkError } = await supabase
-      .from('post_likes')
-      .select('id')
-      .eq('post_id', postId)
-      .eq('user_id', userId)
-
-    if (checkError) {
-      return { success: false, error: checkError }
-    }
-
-    if (existingLikes && existingLikes.length > 0) {
-      return { success: false, error: { message: 'Ya has dado like a este post' } }
-    }
-
-    // Registrar el like en la tabla post_likes
-    const { data, error } = await supabase
-      .from('post_likes')
-      .insert({
-        post_id: postId,
-        user_id: userId
-      })
-      .select('post_id, user_id')
-
-    if (error) {
-      return { success: false, error }
-    }
-
-    // Incrementar el contador en la tabla posts usando la función SQL
-    const { data: updateResult, error: updateError } = await supabase
-      .rpc('increment_post_likes', { post_id: postId })
-
-    if (updateError) {
-      // Si falla la función SQL, hacer fallback manual
-      const { data: currentPost } = await supabase
-        .from('posts')
-        .select('likes_count')
-        .eq('id', postId)
-        .single()
-
-      const currentLikes = currentPost?.likes_count || 0
-      
-      await supabase
-        .from('posts')
-        .update({ likes_count: currentLikes + 1 })
-        .eq('id', postId)
-    }
-
-    return { success: true, data }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-}
-
-// Quitar like a un post - IMPLEMENTACIÓN CORREGIDA
-export const unlikePost = async (postId, userId) => {
-  try {
-    // Eliminar el like de la tabla post_likes
-    const { data, error } = await supabase
-      .from('post_likes')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', userId)
-      .select('post_id, user_id')
-
-    if (error) {
-      return { success: false, error }
-    }
-
-    // Si no se eliminó ninguna fila, el like no existía
-    if (!data || data.length === 0) {
-      return { success: false, error: { message: 'No has dado like a este post' } }
-    }
-
-    // Decrementar el contador en la tabla posts usando la función SQL
-    const { data: updateResult, error: updateError } = await supabase
-      .rpc('decrement_post_likes', { post_id: postId })
-
-    if (updateError) {
-      // Si falla la función SQL, hacer fallback manual
-      const { data: currentPost } = await supabase
-        .from('posts')
-        .select('likes_count')
-        .eq('id', postId)
-        .single()
-
-      const currentLikes = currentPost?.likes_count || 0
-      
-      await supabase
-        .from('posts')
-        .update({ likes_count: Math.max(0, currentLikes - 1) })
-        .eq('id', postId)
-    }
-
-    return { success: true, data }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-}
-
-// Obtener datos de interacciones - SUPER SIMPLIFICADO (sin necesidad de rastrear votos individuales)
-export const getPostsInteractions = async (postIds, userId = null) => {
-  try {
-    if (!postIds || postIds.length === 0) {
-      return {}
-    }
-
-    // Ya no necesitamos verificar votos individuales, solo retornamos estructura vacía
-    // Los contadores vienen directamente de la tabla posts
-    const result = {}
-    postIds.forEach(postId => {
-      result[postId] = {
-        user_vote: null // Siempre null porque no rastreamos votos individuales
-      }
-    })
-
-    return result
-  } catch (error) {
-    return {}
-  }
-}
-
-// ================================
-// FUNCIONES DE COMENTARIOS
-// ================================
-
-// Obtener un post por ID con datos de interacciones
+// Obtener un post por ID
 export const getPostById = async (postId, userId = null) => {
   try {
     if (!postId) {
@@ -509,6 +393,7 @@ export const getPostById = async (postId, userId = null) => {
         video_url,
         views_count,
         likes_count,
+        dislikes_count,
         created_at,
         updated_at,
         user_id
@@ -524,8 +409,8 @@ export const getPostById = async (postId, userId = null) => {
       throw new Error('Post no encontrado')
     }
 
-    // Obtener perfil del usuario, contar comentarios y verificar like
-    const [profileResult, commentsCount, userLike] = await Promise.all([
+    // Obtener perfil del usuario y contar comentarios
+    const [profileResult, commentsCount] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, experience_points, team, avatar_url')
@@ -535,19 +420,10 @@ export const getPostById = async (postId, userId = null) => {
       supabase
         .from('comments')
         .select('id', { count: 'exact' })
-        .eq('post_id', postId),
-
-      // Verificar si el usuario actual ha dado like
-      userId ? supabase
-        .from('post_likes')
-        .select('id')
         .eq('post_id', postId)
-        .eq('user_id', userId)
-        .single() : Promise.resolve({ data: null, error: null })
     ])
 
     const { data: profile, error: profileError } = profileResult
-    const isLiked = userLike.data ? true : false
 
     if (profileError) {
       console.error('⚠️ Error obteniendo perfil:', profileError)
@@ -560,7 +436,10 @@ export const getPostById = async (postId, userId = null) => {
       comments_count: commentsCount.count || 0,
       views_count: post.views_count || 0,
       likes_count: post.likes_count || 0,
-      is_liked: isLiked
+      dislikes_count: post.dislikes_count || 0,
+      user_vote: 0,
+      is_liked: false,
+      is_disliked: false
     }
 
     return { success: true, data: postWithData }
@@ -569,110 +448,31 @@ export const getPostById = async (postId, userId = null) => {
   }
 }
 
-// Obtener comentarios de un post
-export const getPostComments = async (postId, userId = null) => {
-  try {
-    const { data: comments, error: commentsError } = await supabase
-      .from('comments')
-      .select(`
-        id,
-        content,
-        created_at,
-        updated_at,
-        user_id,
-        post_id,
-        parent_comment_id,
-        upvotes_count,
-        downvotes_count,
-        profiles:user_id (
-          id,
-          username,
-          experience_points,
-          team,
-          avatar_url
-        )
-      `)
-      .eq('post_id', postId)
-      .is('parent_comment_id', null)
-      .order('created_at', { ascending: true })
+// ================================
+// FUNCIONES DE COMENTARIOS
+// ================================
 
-    if (commentsError) {
-      return { success: false, error: commentsError }
+// Obtener comentarios en estructura de árbol
+export const getCommentsTree = async (postId, userId = null) => {
+  try {
+    if (!postId) {
+      throw new Error('postId es requerido')
     }
 
-    // Obtener respuestas para cada comentario
-    const commentsWithReplies = await Promise.all(
-      (comments || []).map(async (comment) => {
-        const { data: replies, error: repliesError } = await supabase
-          .from('comments')
-          .select(`
-            id,
-            content,
-            created_at,
-            updated_at,
-            user_id,
-            post_id,
-            parent_comment_id,
-            upvotes_count,
-            downvotes_count,
-            profiles:user_id (
-              id,
-              username,
-              experience_points,
-              team,
-              avatar_url
-            )
-          `)
-          .eq('parent_comment_id', comment.id)
-          .order('created_at', { ascending: true })
-
-        if (repliesError) {
-          console.error('⚠️ Error obteniendo respuestas:', repliesError)
-        }
-
-        return {
-          ...comment,
-          upvotes: comment.upvotes_count || 0,
-          downvotes: comment.downvotes_count || 0,
-          user_vote: null,
-          replies: (replies || []).map(reply => ({
-            ...reply,
-            upvotes: reply.upvotes_count || 0,
-            downvotes: reply.downvotes_count || 0,
-            user_vote: null
-          }))
-        }
+    // Usar la función SQL para obtener comentarios en árbol
+    const { data, error } = await supabase
+      .rpc('get_comments_tree', {
+        p_post_id: postId,
+        p_user_id: userId
       })
-    )
 
-    return { success: true, data: commentsWithReplies }
-  } catch (error) {
-    return { success: false, error }
-  }
-}
-
-// Obtener comentarios de un post
-export const getCommentsByPost = async (postId) => {
-  try {
-    // Obtener comentarios básicos primero - SIN parent_id
-    const { data: comments, error: commentsError } = await supabase
-      .from('comments')
-      .select('id, content, created_at, user_id, post_id')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
-
-    if (commentsError) {
-      throw commentsError
+    if (error) {
+      throw error
     }
 
-    if (!comments || comments.length === 0) {
-      return []
-    }
-
-    // Obtener los IDs únicos de usuarios
-    const userIds = [...new Set(comments.map(comment => comment.user_id))]
-
-    // Obtener perfiles de usuarios por separado
+    // Obtener perfiles de usuarios para todos los comentarios
+    const userIds = [...new Set(data.map(comment => comment.user_id))]
+    
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, username, avatar_url, team')
@@ -680,36 +480,69 @@ export const getCommentsByPost = async (postId) => {
 
     if (profilesError) {
       console.error('Error obteniendo perfiles:', profilesError)
-      // Continuar sin perfiles si hay error
     }
 
     // Combinar comentarios con perfiles
-    const commentsWithProfiles = comments.map(comment => ({
+    const commentsWithProfiles = data.map(comment => ({
       ...comment,
-      profiles: profiles?.find(profile => profile.id === comment.user_id) || null
+      profiles: profiles?.find(profile => profile.id === comment.user_id) || null,
+      is_liked: comment.user_vote === 1,
+      is_disliked: comment.user_vote === -1
     }))
 
-    return commentsWithProfiles
+    // Organizar en estructura de árbol
+    const commentsMap = new Map()
+    const rootComments = []
+
+    // Crear mapa de comentarios
+    commentsWithProfiles.forEach(comment => {
+      comment.replies = []
+      commentsMap.set(comment.id, comment)
+    })
+
+    // Organizar jerarquía
+    commentsWithProfiles.forEach(comment => {
+      if (comment.parent_comment_id) {
+        const parent = commentsMap.get(comment.parent_comment_id)
+        if (parent) {
+          parent.replies.push(comment)
+        }
+      } else {
+        rootComments.push(comment)
+      }
+    })
+
+    return rootComments
   } catch (error) {
+    console.error('Error obteniendo comentarios en árbol:', error)
     throw error
   }
 }
 
-// Crear un nuevo comentario
+// Crear un nuevo comentario con media
 export const createComment = async (commentData) => {
   try {
-    // Remover parent_id del commentData si existe, ya que la columna no existe en la DB
-    const { parent_id, ...cleanCommentData } = commentData
-    
     const { data, error } = await supabase
       .from('comments')
-      .insert(cleanCommentData)
+      .insert({
+        post_id: commentData.post_id,
+        user_id: commentData.user_id,
+        content: commentData.content,
+        parent_comment_id: commentData.parent_comment_id || null,
+        image_url: commentData.image_url || null,
+        video_url: commentData.video_url || null
+      })
       .select(`
         id,
         content,
+        image_url,
+        video_url,
         created_at,
         user_id,
-        post_id
+        post_id,
+        parent_comment_id,
+        likes_count,
+        dislikes_count
       `)
       .single()
 
@@ -717,7 +550,7 @@ export const createComment = async (commentData) => {
       return { success: false, error }
     }
 
-    // Obtener perfil del usuario por separado para evitar problemas de foreign key
+    // Obtener perfil del usuario por separado
     if (data && data.user_id) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -725,10 +558,13 @@ export const createComment = async (commentData) => {
         .eq('id', data.user_id)
         .single()
 
-      // Combinar datos
       const commentWithProfile = {
         ...data,
-        profiles: profile || null
+        profiles: profile || null,
+        user_vote: 0,
+        is_liked: false,
+        is_disliked: false,
+        replies: []
       }
 
       return { success: true, data: commentWithProfile }
@@ -740,34 +576,122 @@ export const createComment = async (commentData) => {
   }
 }
 
-// Votar en un comentario - IMPLEMENTACIÓN SIMPLE SIN RAW
-export const voteComment = async (commentId, userId, voteType) => {
+// Eliminar un comentario
+export const deleteComment = async (commentId, userId) => {
   try {
-    const field = voteType === 'up' ? 'upvotes_count' : 'downvotes_count'
-    
-    // Obtener valor actual primero
-    const { data: currentComment } = await supabase
+    if (!commentId || !userId) {
+      throw new Error('commentId y userId son requeridos')
+    }
+
+    // Verificar que el comentario existe y pertenece al usuario
+    const { data: existingComment, error: checkError } = await supabase
       .from('comments')
-      .select(`${field}`)
+      .select('user_id')
       .eq('id', commentId)
       .single()
 
-    const currentCount = currentComment?.[field] || 0
-    
-    // Actualizar con el valor incrementado
-    const { data, error } = await supabase
-      .from('comments')
-      .update({ 
-        [field]: currentCount + 1
-      })
-      .eq('id', commentId)
-      .select('upvotes_count, downvotes_count')
-
-    if (error) {
-      return { success: false, error: error }
+    if (checkError) {
+      throw checkError
     }
 
-    return { success: true, action: 'created', voteType, data }
+    if (!existingComment) {
+      throw new Error('Comentario no encontrado')
+    }
+
+    if (existingComment.user_id !== userId) {
+      throw new Error('No tienes permisos para eliminar este comentario')
+    }
+
+    // Eliminar el comentario
+    const { data, error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('user_id', userId)
+      .select()
+
+    if (error) {
+      throw error
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// ================================
+// FUNCIONES DE LIKES/DISLIKES EN COMENTARIOS
+// ================================
+
+// Dar like a un comentario
+export const likeComment = async (commentId, userId) => {
+  try {
+    if (!commentId || !userId) {
+      return { success: false, error: 'commentId y userId son requeridos' }
+    }
+
+    // Usar la función SQL para manejar el like (is_like = true)
+    const { data, error } = await supabase
+      .rpc('handle_comment_like', {
+        p_comment_id: commentId,
+        p_user_id: userId,
+        p_is_like: true
+      })
+
+    if (error) {
+      return { success: false, error }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// Dar dislike a un comentario
+export const dislikeComment = async (commentId, userId) => {
+  try {
+    if (!commentId || !userId) {
+      return { success: false, error: 'commentId y userId son requeridos' }
+    }
+
+    // Usar la función SQL para manejar el dislike (is_like = false)
+    const { data, error } = await supabase
+      .rpc('handle_comment_like', {
+        p_comment_id: commentId,
+        p_user_id: userId,
+        p_is_like: false
+      })
+
+    if (error) {
+      return { success: false, error }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// Obtener voto del usuario en un comentario
+export const getUserCommentVote = async (commentId, userId) => {
+  try {
+    if (!commentId || !userId) {
+      return { success: false, error: 'commentId y userId son requeridos' }
+    }
+
+    const { data, error } = await supabase
+      .rpc('get_user_comment_like', {
+        p_comment_id: commentId,
+        p_user_id: userId
+      })
+
+    if (error) {
+      return { success: false, error }
+    }
+
+    return { success: true, vote: data }
   } catch (error) {
     return { success: false, error: error.message }
   }
@@ -785,6 +709,7 @@ export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = nul
         video_url,
         views_count,
         likes_count,
+        dislikes_count,
         created_at,
         updated_at,
         user_id
@@ -813,6 +738,7 @@ export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = nul
             video_url,
             views_count,
             likes_count,
+            dislikes_count,
             created_at,
             updated_at,
             user_id
@@ -875,7 +801,10 @@ export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = nul
         comments_count: commentsCount,
         views_count: video.views_count || 0,
         likes_count: video.likes_count || 0,
-        is_liked: false // Se actualizará cuando el usuario interactúe
+        dislikes_count: video.dislikes_count || 0,
+        user_vote: 0,
+        is_liked: false,
+        is_disliked: false
       }
     })
 

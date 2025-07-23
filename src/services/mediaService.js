@@ -558,3 +558,23 @@ export const optimizeImage = (file, maxWidth = 1920, quality = 0.8) => {
     img.src = URL.createObjectURL(file);
   });
 };
+
+// Función para subir archivos a Cloudflare Worker
+export const uploadFileToWorker = async (file) => {
+  const UPLOAD_ENDPOINT = 'https://falling-boat-f7d7.basiledev-oficial.workers.dev/upload'
+  
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  const response = await fetch(UPLOAD_ENDPOINT, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error('Error subiendo archivo')
+  }
+
+  const data = await response.json()
+  return data.url
+}

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getPostById, getCommentsByPost, createComment, likePost, unlikePost, addPostView } from '../services/postService'
+import { getPostById, getCommentsTree, createComment, deleteComment, likePost, dislikePost, addPostView } from '../services/postService'
+import { uploadFileToWorker } from '../services/mediaService'
 import Avatar from '../components/Avatar'
 import TeamBadge from '../components/TeamBadge'
+import CommentItem from '../components/CommentItem'
 import Sidebar from '../components/Sidebar'
 import RightPanel from '../components/RightPanel'
 import { applyVideoPreferences } from '../services/videoPreferences'
@@ -11,14 +13,19 @@ import {
   ArrowLeft, 
   MessageCircle, 
   Heart, 
+  ThumbsDown,
   ChartNoAxesColumn, 
   Share,
   Loader2,
   Camera,
+  Video,
   Smile,
   Play,
   Volume2,
-  VolumeX
+  VolumeX,
+  MoreHorizontal,
+  Trash2,
+  X
 } from 'lucide-react'
 
 const PostDetail = () => {
@@ -33,6 +40,8 @@ const PostDetail = () => {
   const [isLiking, setIsLiking] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [viewRegistered, setViewRegistered] = useState(false)
+  const [commentSelectedFile, setCommentSelectedFile] = useState(null)
+  const [commentPreviewUrl, setCommentPreviewUrl] = useState(null)
   
   // Estados para control de video
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
@@ -41,6 +50,7 @@ const PostDetail = () => {
   const [videoDuration, setVideoDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState(null)
   const videoRef = useRef(null)
 
   useEffect(() => {
@@ -100,8 +110,13 @@ const PostDetail = () => {
 
   const loadPost = async () => {
     try {
-      const postData = await getPostById(postId, user?.id)
-      setPost(postData)
+      const result = await getPostById(postId, user?.id)
+      if (result.success) {
+        setPost(result.data)
+      } else {
+        console.error('Error cargando post:', result.error)
+        setPost(null)
+      }
     } catch (error) {
       console.error('Error cargando post:', error)
       setPost(null)
@@ -112,7 +127,7 @@ const PostDetail = () => {
 
   const loadComments = async () => {
     try {
-      const commentsData = await getCommentsByPost(postId)
+      const commentsData = await getCommentsTree(postId, user?.id)
       setComments(commentsData)
     } catch (error) {
       console.error('Error cargando comentarios:', error)
@@ -129,34 +144,54 @@ const PostDetail = () => {
     setIsLiking(true)
 
     try {
-      let result
+      // Usar función simplificada de like
+      const result = await likePost(post.id, user.id)
       
-      if (post.is_liked) {
-        result = await unlikePost(post.id, user.id)
-        if (result.success) {
-          setPost(prev => ({
-            ...prev,
-            likes_count: Math.max(0, (prev.likes_count || 0) - 1),
-            is_liked: false
-          }))
-        }
+      if (result.success) {
+        // Actualizar estado local - incrementar directamente
+        setPost(prev => ({
+          ...prev,
+          likes_count: (prev.likes_count || 0) + 1
+        }))
+        window.showSuccessAlert('¡Te gusta este post!')
       } else {
-        result = await likePost(post.id, user.id)
-        if (result.success) {
-          setPost(prev => ({
-            ...prev,
-            likes_count: (prev.likes_count || 0) + 1,
-            is_liked: true
-          }))
-        }
-      }
-      
-      if (!result.success) {
         console.error('Error al dar me gusta:', result.error)
         window.showErrorAlert('Error al dar me gusta')
       }
     } catch (error) {
       console.error('Error en handleLike:', error)
+      window.showErrorAlert('Error inesperado')
+    } finally {
+      setIsLiking(false)
+    }
+  }
+
+  const handleDislike = async () => {
+    if (!user?.id) {
+      window.showErrorAlert('Debes iniciar sesión para dar no me gusta')
+      return
+    }
+
+    if (isLiking) return
+    setIsLiking(true)
+
+    try {
+      // Usar función simplificada de dislike
+      const result = await dislikePost(post.id, user.id)
+      
+      if (result.success) {
+        // Actualizar estado local - incrementar directamente
+        setPost(prev => ({
+          ...prev,
+          dislikes_count: (prev.dislikes_count || 0) + 1
+        }))
+        window.showSuccessAlert('No te gusta este post')
+      } else {
+        console.error('Error al dar no me gusta:', result.error)
+        window.showErrorAlert('Error al dar no me gusta')
+      }
+    } catch (error) {
+      console.error('Error en handleDislike:', error)
       window.showErrorAlert('Error inesperado')
     } finally {
       setIsLiking(false)
@@ -177,7 +212,7 @@ const PostDetail = () => {
         post_id: postId,
         user_id: user.id,
         content: newComment,
-        parent_id: replyingTo?.id || null
+        parent_comment_id: replyingTo?.id || null
       }
 
       const result = await createComment(commentData)
@@ -199,77 +234,30 @@ const PostDetail = () => {
     }
   }
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60))
-    
-    if (diffInMinutes < 1) return 'ahora'
-    if (diffInMinutes < 60) return `${diffInMinutes}m`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`
-    return `${Math.floor(diffInMinutes / 1440)}d`
-  }
+  const handleDeleteComment = async (commentId) => {
+    if (!user?.id) {
+      window.showErrorAlert('Debes iniciar sesión para eliminar un comentario')
+      return
+    }
 
-  const formatFullDate = (timestamp) => {
-    const date = new Date(timestamp)
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }) + ' a las ' + date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+    setDeletingCommentId(commentId)
 
-  if (loading) {
-    return (
-      <>
-        <div className="min-h-screen bg-base-100 flex justify-center">
-          <div className="flex w-full max-w-7xl">
-            <div className="hidden md:block w-20 xl:w-64 border-r border-base-300 sticky top-0 h-screen">
-              <Sidebar />
-            </div>
-            <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0 flex items-center justify-center">
-              <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-4" />
-                <p className="text-base-content/70">Cargando post...</p>
-              </div>
-            </div>
-            <div className="hidden lg:block lg:w-96 p-4">
-              <RightPanel />
-            </div>
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  if (!post) {
-    return (
-      <>
-        <div className="min-h-screen bg-base-100 flex justify-center">
-          <div className="flex w-full max-w-7xl">
-            <div className="hidden md:block w-20 xl:w-64 border-r border-base-300 sticky top-0 h-screen">
-              <Sidebar />
-            </div>
-            <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0 flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold mb-2">Post no encontrado</h2>
-                <p className="text-base-content/70 mb-4">El post que buscas no existe.</p>
-                <Link to="/para-ti" className="btn btn-primary">
-                  <ArrowLeft className="w-4 h-4" />
-                  Volver al inicio
-                </Link>
-              </div>
-            </div>
-            <div className="hidden lg:block lg:w-96 p-4">
-              <RightPanel />
-            </div>
-          </div>
-        </div>
-      </>
-    )
+    try {
+      const result = await deleteComment(commentId, user.id)
+      
+      if (result.success) {
+        window.showSuccessAlert('Comentario eliminado')
+        loadComments() // Recargar comentarios
+      } else {
+        console.error('Error eliminando comentario:', result.error)
+        window.showErrorAlert('Error al eliminar comentario')
+      }
+    } catch (error) {
+      console.error('Error en handleDeleteComment:', error)
+      window.showErrorAlert('Error inesperado')
+    } finally {
+      setDeletingCommentId(null)
+    }
   }
 
   // Funciones de control de video
@@ -389,6 +377,157 @@ const PostDetail = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Funciones para manejar archivos en comentarios
+  const handleCommentFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validación básica de archivo
+      const maxSize = file.type.startsWith('video') ? 50 * 1024 * 1024 : 5 * 1024 * 1024 // 50MB video, 5MB imagen
+      
+      if (file.size > maxSize) {
+        window.showErrorAlert(`El archivo es muy grande. Máximo ${file.type.startsWith('video') ? '50MB' : '5MB'}`)
+        return
+      }
+
+      setCommentSelectedFile(file)
+      setCommentPreviewUrl(URL.createObjectURL(file))
+    }
+  }
+
+  const removeCommentFile = () => {
+    setCommentSelectedFile(null)
+    setCommentPreviewUrl(null)
+  }
+
+  // Función para comentar con archivos multimedia
+  const handleCommentWithMedia = async () => {
+    if (!newComment.trim() && !commentSelectedFile) {
+      window.showErrorAlert('Escribe algo o selecciona un archivo')
+      return
+    }
+    
+    if (!user?.id) {
+      window.showErrorAlert('Debes iniciar sesión para comentar')
+      return
+    }
+
+    setIsCommenting(true)
+    
+    try {
+      let mediaUrl = null
+      let mediaType = null
+
+      // Subir archivo si está seleccionado
+      if (commentSelectedFile) {
+        mediaUrl = await uploadFileToWorker(commentSelectedFile)
+        mediaType = commentSelectedFile.type.startsWith('video') ? 'video' : 'image'
+      }
+
+      // Si no hay texto pero hay archivo, usar un placeholder
+      const commentContent = newComment.trim() || (commentSelectedFile ? '📎' : '')
+
+      const commentData = {
+        post_id: postId,
+        user_id: user.id,
+        content: commentContent,
+        parent_comment_id: replyingTo?.id || null,
+        image_url: mediaType === 'image' ? mediaUrl : null,
+        video_url: mediaType === 'video' ? mediaUrl : null
+      }
+
+      const result = await createComment(commentData)
+      
+      if (result.success) {
+        setNewComment('')
+        setReplyingTo(null)
+        removeCommentFile()
+        loadComments() // Recargar comentarios
+        window.showSuccessAlert('¡Comentario publicado!')
+      } else {
+        console.error('Error creando comentario:', result.error)
+        window.showErrorAlert('Error al publicar comentario')
+      }
+    } catch (error) {
+      console.error('Error en handleCommentWithMedia:', error)
+      window.showErrorAlert('Error inesperado')
+    } finally {
+      setIsCommenting(false)
+    }
+  }
+
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60))
+    
+    if (diffInMinutes < 1) return 'ahora'
+    if (diffInMinutes < 60) return `${diffInMinutes}m`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`
+    return `${Math.floor(diffInMinutes / 1440)}d`
+  }
+
+  const formatFullDate = (timestamp) => {
+    const date = new Date(timestamp)
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }) + ' a las ' + date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  if (loading) {
+    return (
+      <>
+        <div className="min-h-screen bg-base-100 flex justify-center">
+          <div className="flex w-full max-w-7xl">
+            <div className="hidden md:block w-20 xl:w-64 border-r border-base-300 sticky top-0 h-screen">
+              <Sidebar />
+            </div>
+            <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0 flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-4" />
+                <p className="text-base-content/70">Cargando post...</p>
+              </div>
+            </div>
+            <div className="hidden lg:block lg:w-96 p-4">
+              <RightPanel />
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (!post) {
+    return (
+      <>
+        <div className="min-h-screen bg-base-100 flex justify-center">
+          <div className="flex w-full max-w-7xl">
+            <div className="hidden md:block w-20 xl:w-64 border-r border-base-300 sticky top-0 h-screen">
+              <Sidebar />
+            </div>
+            <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0 flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold mb-2">Post no encontrado</h2>
+                <p className="text-base-content/70 mb-4">El post que buscas no existe.</p>
+                <Link to="/para-ti" className="btn btn-primary">
+                  <ArrowLeft className="w-4 h-4" />
+                  Volver al inicio
+                </Link>
+              </div>
+            </div>
+            <div className="hidden lg:block lg:w-96 p-4">
+              <RightPanel />
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <div className="min-h-screen bg-base-100 flex justify-center">
@@ -401,7 +540,7 @@ const PostDetail = () => {
 
           {/* Contenido principal del post - responsive */}
           <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0">
-            {/* Header con navegación - BOTÓN DE VOLVER ARREGLADO */}
+            {/* Header con navegación */}
             <div className="sticky top-0 z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300">
               <div className="flex items-center space-x-4 p-4">
                 <button 
@@ -542,6 +681,10 @@ const PostDetail = () => {
                     <span className="text-base-content/60">Me gusta</span>
                   </div>
                   <div className="flex items-center space-x-1">
+                    <span className="font-bold">{post.dislikes_count || 0}</span>
+                    <span className="text-base-content/60">No me gusta</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
                     <span className="font-bold">{comments.length}</span>
                     <span className="text-base-content/60">Comentarios</span>
                   </div>
@@ -563,14 +706,19 @@ const PostDetail = () => {
                   <button 
                     onClick={handleLike}
                     disabled={isLiking}
-                    className={`flex items-center space-x-3 transition-colors p-3 rounded-full group ${
-                      post.is_liked 
-                        ? 'text-red-500' 
-                        : 'hover:bg-red-50 hover:text-red-500'
-                    }`}
+                    className="flex items-center space-x-3 hover:bg-red-50 hover:text-red-500 transition-colors p-3 rounded-full group"
                   >
-                    <Heart className={`w-5 h-5 ${post.is_liked ? 'fill-current' : ''}`} />
+                    <Heart className="w-5 h-5" />
                     <span className="font-medium">Me gusta</span>
+                  </button>
+
+                  <button 
+                    onClick={handleDislike}
+                    disabled={isLiking}
+                    className="flex items-center space-x-3 hover:bg-blue-50 hover:text-blue-600 transition-colors p-3 rounded-full group"
+                  >
+                    <ThumbsDown className="w-5 h-5" />
+                    <span className="font-medium">No me gusta</span>
                   </button>
 
                   <button className="flex items-center space-x-3 hover:bg-green-50 hover:text-green-500 transition-colors p-3 rounded-full group">
@@ -611,18 +759,64 @@ const PostDetail = () => {
                       className="textarea textarea-ghost w-full min-h-20 resize-none focus:outline-none text-lg placeholder:text-base-content/40"
                       rows={3}
                     />
+                    
+                    {/* Preview de archivo */}
+                    {commentPreviewUrl && (
+                      <div className="mt-2 relative">
+                        {commentSelectedFile?.type.startsWith('image') ? (
+                          <img 
+                            src={commentPreviewUrl} 
+                            alt="Preview" 
+                            className="max-w-full max-h-32 object-contain rounded border border-base-300"
+                          />
+                        ) : (
+                          <video 
+                            src={commentPreviewUrl} 
+                            controls={false}
+                            muted
+                            className="max-w-full max-h-32 object-contain rounded border border-base-300"
+                          />
+                        )}
+                        <button 
+                          onClick={removeCommentFile}
+                          className="absolute top-1 right-1 btn btn-circle btn-xs bg-black/60 hover:bg-black/80 border-none text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex space-x-2">
-                        <button className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors">
+                        {/* Botón para imagen */}
+                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors">
                           <Camera className="w-4 h-4" />
-                        </button>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCommentFileSelect}
+                            className="hidden"
+                          />
+                        </label>
+                        
+                        {/* Botón para video */}
+                        <label className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors">
+                          <Video className="w-4 h-4" />
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={handleCommentFileSelect}
+                            className="hidden"
+                          />
+                        </label>
+                        
                         <button className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors">
                           <Smile className="w-4 h-4" />
                         </button>
                       </div>
                       <button
-                        onClick={handleComment}
-                        disabled={!newComment.trim() || isCommenting}
+                        onClick={handleCommentWithMedia}
+                        disabled={(!newComment.trim() && !commentSelectedFile) || isCommenting}
                         className="btn btn-primary rounded-full px-6 disabled:opacity-50"
                       >
                         {isCommenting ? (
@@ -648,57 +842,24 @@ const PostDetail = () => {
                   </div>
                 ) : (
                   comments.map((comment) => (
-                    <div key={comment.id} className="border-b border-base-300 p-6 hover:bg-base-50 transition-colors">
-                      <div className="flex space-x-3">
-                        <Link to={`/user/${comment.user_id}`}>
-                          <Avatar 
-                            src={comment.profiles?.avatar_url}
-                            alt={`Avatar de ${comment.profiles?.username}`}
-                            name={comment.profiles?.username || 'Usuario'}
-                            team={comment.profiles?.team}
-                            size="md"
-                            className="hover:scale-105 transition-transform cursor-pointer flex-shrink-0"
-                          />
-                        </Link>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <Link 
-                              to={`/user/${comment.user_id}`}
-                              className="hover:underline"
-                            >
-                              <h4 className="font-bold">{comment.profiles?.username || 'Usuario'}</h4>
-                            </Link>
-                            <span className="text-base-content/50">·</span>
-                            <span className="text-base-content/50 text-sm">{formatTime(comment.created_at)}</span>
-                            {comment.profiles?.team && (
-                              <TeamBadge team={comment.profiles.team} size="sm" />
-                            )}
-                          </div>
-                          <Link 
-                            to={`/user/${comment.user_id}`}
-                            className="hover:underline"
-                          >
-                            <span className="text-base-content/70 text-sm">@{comment.profiles?.username || 'usuario'}</span>
-                          </Link>
-                          <p className="mt-2 text-base-content leading-relaxed break-words">
-                            {comment.content}
-                          </p>
-                          <div className="flex items-center space-x-4 mt-3">
-                            <button 
-                              onClick={() => setReplyingTo(comment)}
-                              className="flex items-center space-x-1 text-base-content/60 hover:text-blue-500 transition-colors text-sm"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                              <span>Responder</span>
-                            </button>
-                            <button className="flex items-center space-x-1 text-base-content/60 hover:text-red-500 transition-colors text-sm">
-                              <Heart className="w-4 h-4" />
-                              <span>0</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <CommentItem
+                      key={comment.id}
+                      comment={comment}
+                      postId={postId}
+                      level={0}
+                      onCommentUpdate={(commentId, data) => {
+                        if (commentId === 'new_reply') {
+                          // Nueva respuesta creada, recargar comentarios
+                          loadComments()
+                        } else {
+                          // Actualizar voto en comentario específico
+                          // Implementar lógica de actualización local si es necesario
+                          loadComments()
+                        }
+                      }}
+                      onDeleteComment={handleDeleteComment}
+                      maxLevel={3}
+                    />
                   ))
                 )}
               </div>

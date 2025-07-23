@@ -4,13 +4,14 @@ import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import ImageModal from './ImageModal'
 import { useAuth } from '../context/AuthContext.jsx'
-import { likePost, unlikePost, addPostView } from '../services/postService'
+import { likePost, dislikePost, addPostView } from '../services/postService'
 import { applyVideoPreferences } from '../services/videoPreferences'
 import { 
   MessageCircle, 
   ChartNoAxesColumn, 
   MoreHorizontal,
   Heart,
+  ThumbsDown,
   Trash2,
   Edit,
   Flag,
@@ -162,10 +163,90 @@ const PostCard = ({ post, onDelete }) => {
     alert(`Función de seguir a @${postData.profiles?.username} en desarrollo.`)
   }
 
+  const handleVote = async (voteType) => {
+    if (!user?.id) {
+      window.showErrorAlert('Debes iniciar sesión para votar')
+      return
+    }
+
+    if (isLoading) return
+    setIsLoading(true)
+
+    try {
+      let result
+      if (voteType === 1) {
+        result = await likePost(postData.id, user.id)
+      } else {
+        result = await dislikePost(postData.id, user.id)
+      }
+      
+      if (result.success) {
+        const action = result.data?.action
+        const oldVote = result.data?.old_vote
+        const newVote = result.data?.new_vote || result.data?.vote_type
+
+        // Actualizar estado local basado en la acción
+        setPostData(prev => {
+          let newLikes = prev.likes_count || 0
+          let newDislikes = prev.dislikes_count || 0
+          let newUserVote = 0
+
+          if (action === 'created') {
+            // Nuevo voto
+            if (voteType === 1) {
+              newLikes += 1
+              newUserVote = 1
+            } else {
+              newDislikes += 1
+              newUserVote = -1
+            }
+          } else if (action === 'removed') {
+            // Voto eliminado (toggle off)
+            if (voteType === 1) {
+              newLikes = Math.max(0, newLikes - 1)
+            } else {
+              newDislikes = Math.max(0, newDislikes - 1)
+            }
+            newUserVote = 0
+          } else if (action === 'updated') {
+            // Voto cambiado
+            if (oldVote === 1) newLikes = Math.max(0, newLikes - 1)
+            if (oldVote === -1) newDislikes = Math.max(0, newDislikes - 1)
+            
+            if (newVote === 1) {
+              newLikes += 1
+              newUserVote = 1
+            } else if (newVote === -1) {
+              newDislikes += 1
+              newUserVote = -1
+            }
+          }
+
+          return {
+            ...prev,
+            likes_count: newLikes,
+            dislikes_count: newDislikes,
+            user_vote: newUserVote,
+            is_liked: newUserVote === 1,
+            is_disliked: newUserVote === -1
+          }
+        })
+      } else {
+        console.error('Error al votar:', result.error)
+        window.showErrorAlert('Error al votar')
+      }
+    } catch (error) {
+      console.error('Error en handleVote:', error)
+      window.showErrorAlert('Error inesperado al votar')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleLike = async (event) => {
     event.preventDefault()
     event.stopPropagation()
-
+    
     if (!user?.id) {
       window.showErrorAlert('Debes iniciar sesión para dar me gusta')
       return
@@ -175,46 +256,56 @@ const PostCard = ({ post, onDelete }) => {
     setIsLoading(true)
 
     try {
-      let result
-
-      // Alternar me gusta
-      if (postData.is_liked) {
-        // Si ya le gusta, entonces es un unlike
-        result = await unlikePost(postData.id, user.id)
-        if (result.success) {
-          setPostData(prev => ({
-            ...prev,
-            likes_count: Math.max(0, (prev.likes_count || 0) - 1),
-            is_liked: false
-          }))
-        }
-      } else {
-        // Si no le gusta, entonces es un like
-        result = await likePost(postData.id, user.id)
-        if (result.success) {
-          setPostData(prev => ({
-            ...prev,
-            likes_count: (prev.likes_count || 0) + 1,
-            is_liked: true
-          }))
-        }
-      }
+      const result = await likePost(postData.id, user.id)
       
-      if (!result.success) {
+      if (result.success) {
+        // Actualizar estado local - incrementar directamente
+        setPostData(prev => ({
+          ...prev,
+          likes_count: (prev.likes_count || 0) + 1
+        }))
+        window.showSuccessAlert('¡Te gusta este post!')
+      } else {
         console.error('Error al dar me gusta:', result.error)
-        if (result.error?.message && result.error.message.includes('Ya has dado like')) {
-          // No mostrar error si ya tiene like, solo cambiar estado
-          setPostData(prev => ({
-            ...prev,
-            is_liked: true
-          }))
-        } else {
-          window.showErrorAlert('Error al dar me gusta')
-        }
+        window.showErrorAlert('Error al dar me gusta')
       }
     } catch (error) {
       console.error('Error en handleLike:', error)
-      window.showErrorAlert('Error inesperado al dar me gusta')
+      window.showErrorAlert('Error inesperado')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDislike = async (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    if (!user?.id) {
+      window.showErrorAlert('Debes iniciar sesión para dar no me gusta')
+      return
+    }
+
+    if (isLoading) return
+    setIsLoading(true)
+
+    try {
+      const result = await dislikePost(postData.id, user.id)
+      
+      if (result.success) {
+        // Actualizar estado local - incrementar directamente
+        setPostData(prev => ({
+          ...prev,
+          dislikes_count: (prev.dislikes_count || 0) + 1
+        }))
+        window.showSuccessAlert('No te gusta este post')
+      } else {
+        console.error('Error al dar no me gusta:', result.error)
+        window.showErrorAlert('Error al dar no me gusta')
+      }
+    } catch (error) {
+      console.error('Error en handleDislike:', error)
+      window.showErrorAlert('Error inesperado')
     } finally {
       setIsLoading(false)
     }
@@ -710,7 +801,7 @@ const PostCard = ({ post, onDelete }) => {
       {/* Acciones - Fuera del Link - DISEÑO DISTRIBUIDO DE PUNTA A PUNTA */}
       <div className="flex items-center justify-between px-6 pb-4">
         {/* Estadísticas distribuidas uniformemente */}
-        <div className="flex items-center justify-between w-full max-w-md">
+        <div className="flex items-center justify-between w-full max-w-2xl">
           {/* Comentarios */}
           <Link 
             to={`/post/${postData.id}`}
@@ -727,26 +818,43 @@ const PostCard = ({ post, onDelete }) => {
           {/* Me gusta */}
           <button 
             className={`flex items-center space-x-2 transition-colors group ${
-              postData.is_liked 
+              postData.user_vote === 1
                 ? 'text-red-500' 
                 : 'text-base-content/60 hover:text-red-500'
             }`}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              handleLike(e)
-            }}
+            onClick={handleLike}
             disabled={isLoading}
           >
             <div className={`p-2 rounded-full transition-colors ${
-              postData.is_liked 
+              postData.user_vote === 1
                 ? '' 
                 : 'group-hover:bg-red-50'
             }`}>
-              <Heart className={`w-5 h-5 ${postData.is_liked ? 'fill-current' : ''}`} />
+              <Heart className={`w-5 h-5 ${postData.user_vote === 1 ? 'fill-current' : ''}`} />
             </div>
             <span className="text-sm font-medium">{postData.likes_count || 0}</span>
             <span className="text-sm text-base-content/60 hidden sm:inline">Me gusta</span>
+          </button>
+
+          {/* No me gusta */}
+          <button 
+            className={`flex items-center space-x-2 transition-colors group ${
+              postData.user_vote === -1
+                ? 'text-blue-600' 
+                : 'text-base-content/60 hover:text-blue-600'
+            }`}
+            onClick={handleDislike}
+            disabled={isLoading}
+          >
+            <div className={`p-2 rounded-full transition-colors ${
+              postData.user_vote === -1
+                ? '' 
+                : 'group-hover:bg-blue-50'
+            }`}>
+              <ThumbsDown className={`w-5 h-5 ${postData.user_vote === -1 ? 'fill-current' : ''}`} />
+            </div>
+            <span className="text-sm font-medium">{postData.dislikes_count || 0}</span>
+            <span className="text-sm text-base-content/60 hidden sm:inline">No me gusta</span>
           </button>
 
           {/* Vistas */}
