@@ -259,12 +259,12 @@ const PostCard = ({ post, onDelete }) => {
       const result = await likePost(postData.id, user.id)
       
       if (result.success) {
-        // Actualizar estado local - incrementar directamente
+        // Actualizar solo los likes
         setPostData(prev => ({
           ...prev,
-          likes_count: (prev.likes_count || 0) + 1
+          likes_count: result.data.likes_count,
+          is_liked: result.data.user_liked
         }))
-        window.showSuccessAlert('¡Te gusta este post!')
       } else {
         console.error('Error al dar me gusta:', result.error)
         window.showErrorAlert('Error al dar me gusta')
@@ -293,12 +293,12 @@ const PostCard = ({ post, onDelete }) => {
       const result = await dislikePost(postData.id, user.id)
       
       if (result.success) {
-        // Actualizar estado local - incrementar directamente
+        // Actualizar solo los dislikes
         setPostData(prev => ({
           ...prev,
-          dislikes_count: (prev.dislikes_count || 0) + 1
+          dislikes_count: result.data.dislikes_count,
+          is_disliked: result.data.user_disliked
         }))
-        window.showSuccessAlert('No te gusta este post')
       } else {
         console.error('Error al dar no me gusta:', result.error)
         window.showErrorAlert('Error al dar no me gusta')

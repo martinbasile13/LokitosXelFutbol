@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 // Obtener posts del feed (ordenados por fecha) con datos de interacciones
 export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
   try {
-    // Obtener los posts básicos CON LIKES_COUNT, DISLIKES_COUNT Y VIEWS_COUNT
+    // Obtener los posts básicos
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select(`
@@ -13,8 +13,6 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
         image_url,
         video_url,
         views_count,
-        likes_count,
-        dislikes_count,
         created_at,
         updated_at,
         user_id
@@ -23,6 +21,7 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
       .range(offset, offset + limit - 1)
 
     if (postsError) {
+      console.error('Error obteniendo posts:', postsError)
       return []
     }
 
@@ -34,8 +33,9 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
     const userIds = [...new Set(posts.map(post => post.user_id))]
     const postIds = posts.map(post => post.id)
 
-    // Obtener perfiles de usuarios y conteo de comentarios
-    const [profilesResult, commentsCountResult] = await Promise.all([
+    // Obtener perfiles, comentarios y votos
+    const [profilesResult, commentsCountResult, allVotesResult, userVotesResult] = await Promise.all([
+      // Perfiles de usuarios
       supabase
         .from('profiles')
         .select('id, username, experience_points, team, avatar_url')
@@ -52,35 +52,82 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
             counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
           })
           return counts
-        })
+        }),
+
+      // Obtener TODOS los votos para estos posts
+      supabase
+        .from('post_votes')
+        .select('post_id, vote_type')
+        .in('post_id', postIds),
+
+      // Obtener votos del usuario actual si está autenticado
+      userId ? supabase
+        .from('post_votes')
+        .select('post_id, vote_type')
+        .in('post_id', postIds)
+        .eq('user_id', userId) : Promise.resolve({ data: [] })
     ])
 
     const { data: profiles, error: profilesError } = profilesResult
+    const { data: allVotes, error: votesError } = allVotesResult
+    const { data: userVotes, error: userVotesError } = userVotesResult
 
     if (profilesError) {
       console.error('Error obteniendo perfiles:', profilesError)
     }
 
+    if (votesError) {
+      console.error('Error obteniendo votos:', votesError)
+    }
+
+    if (userVotesError) {
+      console.error('Error obteniendo votos del usuario:', userVotesError)
+    }
+
+    // Contar likes y dislikes para cada post
+    const votesCounts = {}
+    postIds.forEach(postId => {
+      votesCounts[postId] = { likes: 0, dislikes: 0 }
+    })
+
+    // Contar votos totales - CORREGIR PARA USAR 'up'/'down'
+    allVotes?.forEach(vote => {
+      if (vote.vote_type === 'up') {
+        votesCounts[vote.post_id].likes++
+      } else if (vote.vote_type === 'down') {
+        votesCounts[vote.post_id].dislikes++
+      }
+    })
+
+    // Mapear votos del usuario - CORREGIR PARA USAR 'up'/'down'
+    const userVotesMap = {}
+    userVotes?.forEach(vote => {
+      userVotesMap[vote.post_id] = vote.vote_type === 'up' ? 1 : vote.vote_type === 'down' ? -1 : 0
+    })
+
     // Combinar posts con perfiles y datos de interacciones
     const postsWithData = posts.map(post => {
       const profile = profiles?.find(p => p.id === post.user_id)
       const commentsCount = commentsCountResult[post.id] || 0
+      const voteCounts = votesCounts[post.id] || { likes: 0, dislikes: 0 }
+      const userVote = userVotesMap[post.id] || 0
       
       return {
         ...post,
         profiles: profile || null,
         comments_count: commentsCount,
         views_count: post.views_count || 0,
-        likes_count: post.likes_count || 0,
-        dislikes_count: post.dislikes_count || 0,
-        user_vote: 0, // Los posts no tienen sistema de votos individual
-        is_liked: false,
-        is_disliked: false
+        likes_count: voteCounts.likes,
+        dislikes_count: voteCounts.dislikes,
+        user_vote: userVote,
+        is_liked: userVote === 1,
+        is_disliked: userVote === -1
       }
     })
 
     return postsWithData
   } catch (error) {
+    console.error('Error en getFeedPosts:', error)
     return []
   }
 }
@@ -206,30 +253,57 @@ export const deletePost = async (postId, userId) => {
 }
 
 // ================================
-// FUNCIONES SIMPLIFICADAS PARA POSTS (SIN SISTEMA DE VOTOS)
+// FUNCIONES SIMPLES PARA POSTS - LIKES Y DISLIKES INDEPENDIENTES
 // ================================
 
-// Dar like a un post (incrementar contador directamente)
+// Dar like a un post - LIKES INDEPENDIENTES
 export const likePost = async (postId, userId) => {
   try {
-    // Solo incrementar el contador de likes
-    const { data, error } = await supabase
-      .from('posts')
-      .update({ 
-        likes_count: supabase.raw('likes_count + 1')
-      })
-      .eq('id', postId)
-      .select('likes_count')
+    // 1. Ver si ya dio like
+    const { data: existingLike } = await supabase
+      .from('post_votes')
+      .select('*')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .eq('vote_type', 'up')
+      .single()
 
-    if (error) {
-      return { success: false, error }
+    if (existingLike) {
+      // Ya dio like, quitarlo
+      await supabase
+        .from('post_votes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .eq('vote_type', 'up')
+    } else {
+      // Dar like (SIN QUITAR DISLIKE)
+      await supabase
+        .from('post_votes')
+        .insert({ post_id: postId, user_id: userId, vote_type: 'up' })
     }
 
-    return { 
-      success: true, 
-      data: { 
-        action: 'liked',
-        likes_count: data[0]?.likes_count || 0
+    // Contar likes
+    const { count: likes } = await supabase
+      .from('post_votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+      .eq('vote_type', 'up')
+
+    // Ver si el usuario tiene like activo
+    const { data: currentLike } = await supabase
+      .from('post_votes')
+      .select('vote_type')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .eq('vote_type', 'up')
+      .single()
+
+    return {
+      success: true,
+      data: {
+        likes_count: likes || 0,
+        user_liked: !!currentLike
       }
     }
   } catch (error) {
@@ -237,27 +311,54 @@ export const likePost = async (postId, userId) => {
   }
 }
 
-// Dar dislike a un post (incrementar contador directamente)
+// Dar dislike a un post - DISLIKES INDEPENDIENTES
 export const dislikePost = async (postId, userId) => {
   try {
-    // Solo incrementar el contador de dislikes
-    const { data, error } = await supabase
-      .from('posts')
-      .update({ 
-        dislikes_count: supabase.raw('dislikes_count + 1')
-      })
-      .eq('id', postId)
-      .select('dislikes_count')
+    // 1. Ver si ya dio dislike
+    const { data: existingDislike } = await supabase
+      .from('post_votes')
+      .select('*')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .eq('vote_type', 'down')
+      .single()
 
-    if (error) {
-      return { success: false, error }
+    if (existingDislike) {
+      // Ya dio dislike, quitarlo
+      await supabase
+        .from('post_votes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .eq('vote_type', 'down')
+    } else {
+      // Dar dislike (SIN QUITAR LIKE)
+      await supabase
+        .from('post_votes')
+        .insert({ post_id: postId, user_id: userId, vote_type: 'down' })
     }
 
-    return { 
-      success: true, 
-      data: { 
-        action: 'disliked',
-        dislikes_count: data[0]?.dislikes_count || 0
+    // Contar dislikes
+    const { count: dislikes } = await supabase
+      .from('post_votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+      .eq('vote_type', 'down')
+
+    // Ver si el usuario tiene dislike activo
+    const { data: currentDislike } = await supabase
+      .from('post_votes')
+      .select('vote_type')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .eq('vote_type', 'down')
+      .single()
+
+    return {
+      success: true,
+      data: {
+        dislikes_count: dislikes || 0,
+        user_disliked: !!currentDislike
       }
     }
   } catch (error) {
@@ -356,14 +457,11 @@ export const addPostView = async (postId, userId = null) => {
       return { success: false, error: 'Post ID requerido' }
     }
 
-    // Incrementar contador de vistas directamente
+    // Usar función SQL para incrementar vistas
     const { data, error } = await supabase
-      .from('posts')
-      .update({ 
-        views_count: supabase.raw('views_count + 1')
+      .rpc('increment_post_views', {
+        p_post_id: postId
       })
-      .eq('id', postId)
-      .select('views_count')
 
     if (error) {
       return { success: false, error: error.message }

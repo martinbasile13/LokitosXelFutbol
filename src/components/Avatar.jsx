@@ -33,7 +33,7 @@ const Avatar = ({
     if (!team || team === 'Sin Equipo') return null
     
     try {
-      // Mapear equipos a archivos de escudos
+      // Mapear equipos a archivos de escudos - CORREGIR RUTA
       const teamFiles = {
         'Boca Juniors': 'boca.png',
         'River Plate': 'river.png',
@@ -49,12 +49,12 @@ const Avatar = ({
         'Vélez Sarsfield': 'velez.png',
         'Huracán': 'huracan.png',
         'Newells Old Boys': 'newells.png',
-        'Rosario Central': 'rosario_central.png',
+        'Rosario Central': 'rosariocentral.png',
         'Central Córdoba': 'central_cordoba.png',
         'Talleres': 'talleres.png',
         'Instituto': 'instituto.png',
         'Belgrano': 'belgrano.png',
-        'Godoy Cruz': 'godoy_cruz.png',
+        'Godoy Cruz': 'godoycruz.png',
         'Deportivo Riestra': 'riestra.png',
         'Atlético Tucumán': 'atletico_tucuman.png',
         'Unión': 'union.png',
@@ -67,7 +67,7 @@ const Avatar = ({
 
       const fileName = teamFiles[team]
       if (fileName) {
-        return `/equipos/${fileName}`
+        return `/primeradivision/${fileName}` // CAMBIAR DE /equipos/ A /primeradivision/
       }
       return null
     } catch (error) {

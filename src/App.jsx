@@ -8,7 +8,8 @@ import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
 import UserProfile from './pages/UserProfile'
 import Notificaciones from './pages/Notificaciones'
-import AQuienSeguir from './pages/AQuienSeguir' // Nueva página
+import AQuienSeguir from './pages/AQuienSeguir'
+import Explorar from './pages/Explorar' // Importar el nuevo componente
 import Auth from './pages/Auth'
 import './Styles/index.css'
 
@@ -26,18 +27,6 @@ const Partidos = () => (
     </div>
   </div>
 )
-
-const Explorar = () => (
-  <div className="min-h-screen flex items-center justify-center bg-base-100">
-    <div className="text-center">
-      <h1 className="text-4xl font-bold mb-4">🔍 Explorar</h1>
-      <p className="text-lg text-base-content/70">
-        Explora tendencias y usuarios
-      </p>
-    </div>
-  </div>
-)
-
 
 function App() {
   return (
