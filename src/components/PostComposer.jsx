@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from './Avatar'
 import { validateFile } from '../services/mediaService'
-import { createPost } from '../services/postService'
+import { createPost } from '../services/posts'
 import EmojiPicker from 'emoji-picker-react'
 import { 
   Camera, 

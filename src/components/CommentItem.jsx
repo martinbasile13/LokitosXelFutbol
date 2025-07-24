@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
-import { useAuth } from '../context/AuthContext.jsx'
-import { likeComment, dislikeComment, createComment } from '../services/postService'
+import { likeComment, dislikeComment, createComment } from '../services/posts'
 import { uploadFileToWorker } from '../services/mediaService'
 import { 
   Heart, 

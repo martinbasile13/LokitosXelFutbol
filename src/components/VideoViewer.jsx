@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getVideoFeed, likePost, dislikePost, addPostView } from '../services/postService'
+import { getVideoFeed, likePost, dislikePost, addPostView } from '../services/posts'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import { 

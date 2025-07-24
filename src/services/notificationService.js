@@ -1,12 +1,20 @@
+// ===========================================
+// NOTIFICATION SERVICE - GESTIÓN DE NOTIFICACIONES (SIMPLIFICADO)
+// ===========================================
+// Este archivo contiene solo las funciones esenciales de notificaciones
+
 import { supabase } from './supabaseClient'
 
 // ===================================
 // OBTENER NOTIFICACIONES
 // ===================================
 
-// Obtener todas las notificaciones del usuario
 export const getNotifications = async (userId, type = 'all', limit = 20) => {
   try {
+    if (!userId) {
+      throw new Error('userId es requerido')
+    }
+
     let query = supabase
       .from('notifications')
       .select(`
@@ -27,7 +35,6 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
       .order('created_at', { ascending: false })
       .limit(limit)
 
-    // Filtrar por tipo si se especifica
     if (type !== 'all') {
       query = query.eq('type', type)
     }
@@ -46,203 +53,10 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
   }
 }
 
-// Obtener nuevos seguidores recientes
-export const getNewFollowers = async (userId, limit = 10) => {
-  try {
-    const { data, error } = await supabase
-      .from('followers')
-      .select(`
-        id,
-        created_at,
-        follower:follower_id (
-          id,
-          username,
-          avatar_url,
-          team
-        )
-      `)
-      .eq('following_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('❌ Error obteniendo nuevos seguidores:', error)
-      throw error
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('💥 Error en getNewFollowers:', error)
-    throw error
-  }
-}
-
-// Obtener likes recientes en posts del usuario
-export const getRecentLikes = async (userId, limit = 10) => {
-  try {
-    const { data, error } = await supabase
-      .from('post_likes')
-      .select(`
-        id,
-        created_at,
-        post:post_id (
-          id,
-          content,
-          user_id
-        ),
-        user:user_id (
-          id,
-          username,
-          avatar_url,
-          team
-        )
-      `)
-      .eq('post.user_id', userId)
-      .neq('user_id', userId) // Excluir likes propios
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('❌ Error obteniendo likes recientes:', error)
-      throw error
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('💥 Error en getRecentLikes:', error)
-    throw error
-  }
-}
-
-// Obtener comentarios recientes en posts del usuario
-export const getRecentComments = async (userId, limit = 10) => {
-  try {
-    const { data, error } = await supabase
-      .from('comments')
-      .select(`
-        id,
-        content,
-        created_at,
-        post:post_id (
-          id,
-          content,
-          user_id
-        ),
-        user:user_id (
-          id,
-          username,
-          avatar_url,
-          team
-        )
-      `)
-      .eq('post.user_id', userId)
-      .neq('user_id', userId) // Excluir comentarios propios
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('❌ Error obteniendo comentarios recientes:', error)
-      throw error
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('💥 Error en getRecentComments:', error)
-    throw error
-  }
-}
-
-// Obtener posts recomendados de usuarios que sigue
-export const getRecommendedPosts = async (userId, limit = 5) => {
-  try {
-    // Obtener posts de usuarios que sigue
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        id,
-        content,
-        image_url,
-        created_at,
-        likes_count,
-        views_count,
-        user:user_id (
-          id,
-          username,
-          avatar_url,
-          team
-        )
-      `)
-      .in('user_id', 
-        supabase
-          .from('followers')
-          .select('following_id')
-          .eq('follower_id', userId)
-      )
-      .neq('user_id', userId) // Excluir posts propios
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error('❌ Error obteniendo posts recomendados:', error)
-      throw error
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('💥 Error en getRecommendedPosts:', error)
-    throw error
-  }
-}
-
-// ===================================
-// MARCAR COMO LEÍDAS
-// ===================================
-
-// Marcar notificación como leída
-export const markAsRead = async (notificationId) => {
-  try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', notificationId)
-      .select()
-
-    if (error) {
-      console.error('❌ Error marcando notificación como leída:', error)
-      throw error
-    }
-
-    return { success: true, data }
-  } catch (error) {
-    console.error('💥 Error en markAsRead:', error)
-    return { success: false, error }
-  }
-}
-
-// Marcar todas las notificaciones como leídas
-export const markAllAsRead = async (userId) => {
-  try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('user_id', userId)
-      .eq('read', false)
-
-    if (error) {
-      console.error('❌ Error marcando todas las notificaciones como leídas:', error)
-      throw error
-    }
-
-    return { success: true, data }
-  } catch (error) {
-    console.error('💥 Error en markAllAsRead:', error)
-    return { success: false, error }
-  }
-}
-
-// Obtener conteo de notificaciones no leídas
 export const getUnreadCount = async (userId) => {
   try {
+    if (!userId) return 0
+
     const { count, error } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
@@ -251,7 +65,7 @@ export const getUnreadCount = async (userId) => {
 
     if (error) {
       console.error('❌ Error obteniendo conteo no leídas:', error)
-      throw error
+      return 0
     }
 
     return count || 0
@@ -262,34 +76,81 @@ export const getUnreadCount = async (userId) => {
 }
 
 // ===================================
-// CREAR NOTIFICACIONES MANUALES
+// MARCAR COMO LEÍDAS
 // ===================================
 
-// Crear notificación manual de post recomendado
-export const createRecommendedPostNotification = async (userId, postId, actorId) => {
+export const markAsRead = async (notificationId) => {
   try {
+    if (!notificationId) {
+      return { success: false, error: 'notificationId es requerido' }
+    }
+
     const { data, error } = await supabase
       .from('notifications')
-      .insert({
-        user_id: userId,
-        type: 'recommended_post',
-        actor_id: actorId,
-        target_id: postId,
-        data: {
-          message: 'Nuevo post recomendado'
-        }
-      })
+      .update({ read: true })
+      .eq('id', notificationId)
       .select()
 
     if (error) {
-      console.error('❌ Error creando notificación de post recomendado:', error)
-      throw error
+      return { success: false, error: error.message }
     }
 
     return { success: true, data }
   } catch (error) {
-    console.error('💥 Error en createRecommendedPostNotification:', error)
-    return { success: false, error }
+    return { success: false, error: error.message }
+  }
+}
+
+export const markAllAsRead = async (userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'userId es requerido' }
+    }
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('read', false)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// ===================================
+// CREAR NOTIFICACIONES
+// ===================================
+
+export const createFollowNotification = async (userId, actorId) => {
+  try {
+    if (!userId || !actorId) {
+      return { success: false, error: 'userId y actorId son requeridos' }
+    }
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type: 'follow',
+        actor_id: actorId,
+        target_id: actorId,
+        data: { message: 'Te empezó a seguir' }
+      })
+      .select()
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
   }
 }
 
@@ -297,7 +158,6 @@ export const createRecommendedPostNotification = async (userId, postId, actorId)
 // UTILIDADES
 // ===================================
 
-// Formatear tiempo relativo para notificaciones
 export const formatNotificationTime = (timestamp) => {
   const date = new Date(timestamp)
   const now = new Date()
@@ -310,7 +170,6 @@ export const formatNotificationTime = (timestamp) => {
   return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 }
 
-// Obtener texto descriptivo de la notificación
 export const getNotificationText = (notification) => {
   const actorName = notification.actor?.username || 'Alguien'
   
@@ -328,7 +187,6 @@ export const getNotificationText = (notification) => {
   }
 }
 
-// Obtener icono de la notificación
 export const getNotificationIcon = (type) => {
   switch (type) {
     case 'follow':

@@ -7,15 +7,14 @@ import Avatar from '../components/Avatar'
 import TeamBadge from '../components/TeamBadge'
 import { 
   getNotifications,
-  getNewFollowers,
-  getRecentLikes,
-  getRecentComments,
-  getRecommendedPosts,
   markAsRead,
   markAllAsRead,
   formatNotificationTime,
   getNotificationText
 } from '../services/notificationService'
+import { 
+  getRecommendedPosts
+} from '../services/userService'
 import { 
   ArrowLeft,
   Settings,
@@ -86,18 +85,13 @@ const Notificaciones = () => {
 
   const loadRecentData = async () => {
     try {
-      // Cargar datos complementarios para mostrar actividad reciente
-      const [followers, likes, comments, recommendedPosts] = await Promise.all([
-        getNewFollowers(user.id, 5),
-        getRecentLikes(user.id, 5),
-        getRecentComments(user.id, 5),
-        getRecommendedPosts(user.id, 3)
-      ])
+      // Cargar solo posts recomendados ya que las otras funciones no existen
+      const recommendedPosts = await getRecommendedPosts(user.id, 3)
 
       setRecentData({
-        followers,
-        likes,
-        comments,
+        followers: [], // Dejar vacío por ahora
+        likes: [], // Dejar vacío por ahora
+        comments: [], // Dejar vacío por ahora
         recommendedPosts
       })
     } catch (error) {

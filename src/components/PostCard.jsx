@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import Avatar from './Avatar'
 import TeamBadge from './TeamBadge'
 import ImageModal from './ImageModal'
-import { useAuth } from '../context/AuthContext.jsx'
-import { likePost, dislikePost, addPostView } from '../services/postService'
+import { likePost, dislikePost, addPostView } from '../services/posts'
 import { applyVideoPreferences } from '../services/videoPreferences'
 import { 
   MessageCircle, 
@@ -259,11 +259,14 @@ const PostCard = ({ post, onDelete }) => {
       const result = await likePost(postData.id, user.id)
       
       if (result.success) {
-        // Actualizar solo los likes
+        // Actualizar estado completo basado en la respuesta
         setPostData(prev => ({
           ...prev,
           likes_count: result.data.likes_count,
-          is_liked: result.data.user_liked
+          dislikes_count: result.data.dislikes_count,
+          is_liked: result.data.user_liked,
+          is_disliked: result.data.user_disliked,
+          user_vote: result.data.user_liked ? 1 : 0
         }))
       } else {
         console.error('Error al dar me gusta:', result.error)
@@ -293,11 +296,14 @@ const PostCard = ({ post, onDelete }) => {
       const result = await dislikePost(postData.id, user.id)
       
       if (result.success) {
-        // Actualizar solo los dislikes
+        // Actualizar estado completo basado en la respuesta
         setPostData(prev => ({
           ...prev,
+          likes_count: result.data.likes_count,
           dislikes_count: result.data.dislikes_count,
-          is_disliked: result.data.user_disliked
+          is_liked: result.data.user_liked,
+          is_disliked: result.data.user_disliked,
+          user_vote: result.data.user_disliked ? -1 : 0
         }))
       } else {
         console.error('Error al dar no me gusta:', result.error)

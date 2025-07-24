@@ -4,7 +4,7 @@ import PostCard from '../components/PostCard'
 import PostComposer from '../components/PostComposer'
 import Sidebar from '../components/Sidebar'
 import RightPanel from '../components/RightPanel'
-import { getFeedPosts, deletePost } from '../services/postService'
+import { getFeedPosts, deletePost } from '../services/posts'
 import { Link, useLocation } from 'react-router-dom'
 import { 
   Loader2,

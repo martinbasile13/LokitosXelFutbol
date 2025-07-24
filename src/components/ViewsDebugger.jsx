@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext.jsx'
+import { addPostView } from '../services/posts'
 import { supabase } from '../services/supabaseClient'
-import { addPostView } from '../services/postService'
-import { useAuth } from '../context/AuthContext'
 
 const ViewsDebugger = ({ postId }) => {
   const { user } = useAuth()
@@ -103,4 +103,4 @@ const ViewsDebugger = ({ postId }) => {
   )
 }
 
-export default ViewsDebugger 
+export default ViewsDebugger
