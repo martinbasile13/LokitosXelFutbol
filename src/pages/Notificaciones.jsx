@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
+import { useAuth } from '../context/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
-import RightPanel from '../components/RightPanel'
-import Avatar from '../components/Avatar'
-import TeamBadge from '../components/TeamBadge'
+import Avatar from '../components/UI/Avatar'
+import TeamBadge from '../components/UI/TeamBadge'
+import AppLayout from '../components/AppLayout'
+import PageHeader from '../components/Navigation/PageHeader'
 import { 
   getNotifications,
   markAsRead,
@@ -279,199 +279,155 @@ const Notificaciones = () => {
   )
 
   return (
-    <div className="min-h-screen bg-base-100 flex justify-center">
-      {/* Contenedor principal centrado */}
-      <div className="flex w-full max-w-7xl">
-        {/* Sidebar estilo Twitter - hidden en móvil */}
-        <div className="hidden md:block w-20 xl:w-64 border-r border-base-300 sticky top-0 h-screen">
-          <Sidebar />
-        </div>
-
-        {/* Contenido principal de notificaciones - responsive */}
-        <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0">
-          {/* Header con navegación */}
-          <div className="sticky top-0 z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300">
-            <div className="flex items-center justify-between p-4">
-              <div className="flex items-center space-x-4">
-                <button 
-                  onClick={() => navigate(-1)}
-                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors md:hidden"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                  <h1 className="text-xl font-bold">Notificaciones</h1>
-                  <p className="text-sm text-base-content/60">
-                    {notifications.filter(n => !n.read).length} sin leer
-                  </p>
-                </div>
-              </div>
-
-              {/* Botones de acción */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleMarkAllAsRead}
-                  disabled={markingAsRead || notifications.every(n => n.read)}
-                  className="btn btn-ghost btn-sm"
-                >
-                  {markingAsRead ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <CheckCheck className="w-4 h-4" />
-                  )}
-                  <span className="hidden sm:inline ml-2">Marcar todas como leídas</span>
-                </button>
-                <button className="btn btn-ghost btn-circle btn-sm">
-                  <Settings className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Tabs de filtros */}
-            <div className="flex border-b border-base-300">
-              {tabs.map((tab) => {
-                const TabIcon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-base-content/60 hover:text-base-content'
-                    }`}
-                  >
-                    <TabIcon className="w-4 h-4 mr-2 inline" />
-                    {tab.label}
-                  </button>
-                )
-              })}
+    <AppLayout>
+      {/* Header personalizado con botones de acción */}
+      <div className="sticky top-0 z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => navigate(-1)}
+              className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors md:hidden"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold">Notificaciones</h1>
+              <p className="text-sm text-base-content/60">
+                {notifications.filter(n => !n.read).length} sin leer
+              </p>
             </div>
           </div>
 
-          {/* Contenido de notificaciones */}
-          <div className="pb-16 md:pb-20">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="ml-2 text-base-content/70">Cargando notificaciones...</p>
+          {/* Botones de acción */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleMarkAllAsRead}
+              disabled={markingAsRead || notifications.every(n => n.read)}
+              className="btn btn-ghost btn-sm"
+            >
+              {markingAsRead ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCheck className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline ml-2">Marcar todas como leídas</span>
+            </button>
+            <button className="btn btn-ghost btn-circle btn-sm">
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs de filtros */}
+        <div className="flex border-b border-base-300">
+          {tabs.map((tab) => {
+            const TabIcon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-base-content/60 hover:text-base-content'
+                }`}
+              >
+                <TabIcon className="w-4 h-4 mr-2 inline" />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Contenido de notificaciones */}
+      <div className="pb-16 md:pb-20">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="ml-2 text-base-content/70">Cargando notificaciones...</p>
+          </div>
+        ) : (
+          <>
+            {/* Posts recomendados */}
+            {recentData.recommendedPosts.length > 0 && (
+              <div className="p-4 border-b border-base-300">
+                <h3 className="font-bold text-lg mb-3 flex items-center">
+                  <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                  Posts recomendados
+                </h3>
+                <div className="space-y-3">
+                  {recentData.recommendedPosts.map(renderRecommendedPost)}
+                </div>
+              </div>
+            )}
+
+            {/* Lista de notificaciones */}
+            {notifications.length > 0 ? (
+              <div>
+                {notifications.map(renderNotificationItem)}
               </div>
             ) : (
-              <>
-                {/* Posts recomendados */}
-                {recentData.recommendedPosts.length > 0 && (
-                  <div className="p-4 border-b border-base-300">
-                    <h3 className="font-bold text-lg mb-3 flex items-center">
-                      <Star className="w-5 h-5 mr-2 text-yellow-500" />
-                      Posts recomendados
-                    </h3>
-                    <div className="space-y-3">
-                      {recentData.recommendedPosts.map(renderRecommendedPost)}
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 mx-auto text-base-content/30 mb-4" />
+                <h3 className="text-xl font-bold mb-2">No hay notificaciones</h3>
+                <p className="text-base-content/60 mb-4">
+                  Cuando tengas nuevas notificaciones, aparecerán aquí.
+                </p>
+                <Link to="/para-ti" className="btn btn-primary">
+                  Ir al feed
+                </Link>
+              </div>
+            )}
+
+            {/* Actividad reciente si no hay notificaciones pero hay datos */}
+            {notifications.length === 0 && (recentData.followers.length > 0 || recentData.likes.length > 0) && (
+              <div className="p-4">
+                <h3 className="font-bold text-lg mb-4">Actividad reciente</h3>
+                
+                {/* Nuevos seguidores */}
+                {recentData.followers.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="font-semibold mb-2 flex items-center">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Nuevos seguidores
+                    </h4>
+                    <div className="space-y-2">
+                      {recentData.followers.map((follow) => (
+                        <Link
+                          key={follow.id}
+                          to={`/user/${follow.follower?.id}`}
+                          className="flex items-center space-x-3 p-3 bg-base-200/50 rounded-lg hover:bg-base-200 transition-colors"
+                        >
+                          <Avatar 
+                            src={follow.follower?.avatar_url}
+                            alt={follow.follower?.username}
+                            name={follow.follower?.username || 'Usuario'}
+                            team={follow.follower?.team}
+                            size="sm"
+                          />
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">
+                              {follow.follower?.username}
+                            </p>
+                            <p className="text-xs text-base-content/60">
+                              {formatNotificationTime(follow.created_at)}
+                            </p>
+                          </div>
+                          {follow.follower?.team && (
+                            <TeamBadge team={follow.follower.team} size="xs" />
+                          )}
+                        </Link>
+                      ))}
                     </div>
                   </div>
                 )}
-
-                {/* Lista de notificaciones */}
-                {notifications.length > 0 ? (
-                  <div>
-                    {notifications.map(renderNotificationItem)}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Bell className="w-16 h-16 mx-auto text-base-content/30 mb-4" />
-                    <h3 className="text-xl font-bold mb-2">No hay notificaciones</h3>
-                    <p className="text-base-content/60 mb-4">
-                      Cuando tengas nuevas notificaciones, aparecerán aquí.
-                    </p>
-                    <Link to="/para-ti" className="btn btn-primary">
-                      Ir al feed
-                    </Link>
-                  </div>
-                )}
-
-                {/* Actividad reciente si no hay notificaciones pero hay datos */}
-                {notifications.length === 0 && (recentData.followers.length > 0 || recentData.likes.length > 0) && (
-                  <div className="p-4">
-                    <h3 className="font-bold text-lg mb-4">Actividad reciente</h3>
-                    
-                    {/* Nuevos seguidores */}
-                    {recentData.followers.length > 0 && (
-                      <div className="mb-6">
-                        <h4 className="font-semibold mb-2 flex items-center">
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Nuevos seguidores
-                        </h4>
-                        <div className="space-y-2">
-                          {recentData.followers.map((follow) => (
-                            <Link
-                              key={follow.id}
-                              to={`/user/${follow.follower?.id}`}
-                              className="flex items-center space-x-3 p-3 bg-base-200/50 rounded-lg hover:bg-base-200 transition-colors"
-                            >
-                              <Avatar 
-                                src={follow.follower?.avatar_url}
-                                alt={follow.follower?.username}
-                                name={follow.follower?.username || 'Usuario'}
-                                team={follow.follower?.team}
-                                size="sm"
-                              />
-                              <div className="flex-1">
-                                <p className="font-semibold text-sm">
-                                  {follow.follower?.username}
-                                </p>
-                                <p className="text-xs text-base-content/60">
-                                  {formatNotificationTime(follow.created_at)}
-                                </p>
-                              </div>
-                              {follow.follower?.team && (
-                                <TeamBadge team={follow.follower.team} size="xs" />
-                              )}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
+              </div>
             )}
-          </div>
-        </div>
-
-        {/* Panel derecho estilo Twitter - solo visible en pantallas grandes */}
-        <div className="hidden lg:block lg:w-96 p-4">
-          <RightPanel />
-        </div>
-
-        {/* Navegación móvil fija abajo */}
-        <div className="fixed bottom-0 left-0 right-0 bg-base-100 border-t border-base-300 md:hidden z-50">
-          <div className="flex justify-around py-2">
-            <Link to="/para-ti" className="flex flex-col items-center p-2 text-base-content/60">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-              </svg>
-              <span className="text-xs mt-1">Inicio</span>
-            </Link>
-            <Link to="/explorar" className="flex flex-col items-center p-2 text-base-content/60">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-              </svg>
-              <span className="text-xs mt-1">Buscar</span>
-            </Link>
-            <Link to="/notificaciones" className="flex flex-col items-center p-2 text-primary">
-              <Bell className="w-6 h-6" />
-              <span className="text-xs mt-1">Notif</span>
-            </Link>
-            <Link to="/perfil" className="flex flex-col items-center p-2 text-base-content/60">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
-              <span className="text-xs mt-1">Perfil</span>
-            </Link>
-          </div>
-        </div>
+          </>
+        )}
       </div>
-    </div>
+    </AppLayout>
   )
 }
 

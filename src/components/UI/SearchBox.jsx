@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
-import { searchUsers } from '../services/userService'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { searchUsers } from '../../services/userService'
 import Avatar from './Avatar'
 import { Search, X, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'

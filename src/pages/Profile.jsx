@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
-import { getUserStats, getUserPosts, updateUserProfileWithAvatar } from '../services/userService'
-import { validateFile, getReadableFileSize } from '../services/mediaService'
-import { EQUIPOS_PRIMERA } from '../data/equipos'
-import Avatar from '../components/Avatar'
-import TeamBadge from '../components/TeamBadge'
-import PostCard from '../components/PostCard'
-import Sidebar from '../components/Sidebar'
-import RightPanel from '../components/RightPanel'
-import ImageCropper from '../components/ImageCropper'
+import { useAuth } from '../context/AuthContext'
+import { Link, useNavigate } from 'react-router-dom'
+import Avatar from '../components/UI/Avatar'
+import TeamBadge from '../components/UI/TeamBadge'
+import ImageCropper from '../components/Media/ImageCropper'
+import AppLayout from '../components/AppLayout'
+import PageHeader from '../components/Navigation/PageHeader'
 import { 
-  ArrowLeft, 
-  MapPin, 
+  MapPin,
   Calendar,
   MoreHorizontal,
   Edit,
@@ -19,7 +15,10 @@ import {
   Upload,
   X
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { getUserStats, getUserPosts, updateUserProfile } from '../services/userService'
+import { validateFile } from '../services/media/fileValidation'
+import { EQUIPOS_PRIMERA } from '../data/equipos'
+import PostCard from '../components/PostCard/index.jsx'
 
 const Profile = () => {
   const navigate = useNavigate()
@@ -216,7 +215,7 @@ const Profile = () => {
         setUploadProgress(60)
       }
       
-      const result = await updateUserProfileWithAvatar(
+      const result = await updateUserProfile(
         user.id,
         editFormData,
         avatarFile,
@@ -281,256 +280,196 @@ const Profile = () => {
   ]
 
   return (
-    <>
-      <div className="min-h-screen bg-base-100 flex justify-center">
-        {/* Contenedor principal centrado */}
-        <div className="flex w-full max-w-7xl">
-          {/* Sidebar estilo Twitter - hidden en móvil */}
-          <div className="hidden md:block w-20 xl:w-64 border-r border-base-300 sticky top-0 h-screen">
-            <Sidebar />
+    <AppLayout>
+      {/* Header simplificado */}
+      <PageHeader 
+        title={userProfile?.username || 'Usuario'}
+        showBackButton
+      />
+
+      {/* Header con imagen de fondo */}
+      <div className="relative">
+        {/* Imagen de fondo del header - "portada" */}
+        <div className="h-52 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 relative overflow-hidden">
+          {userProfile?.cover_image_url ? (
+            <img 
+              src={userProfile.cover_image_url} 
+              alt="Imagen de portada" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error('Error cargando imagen de portada:', userProfile.cover_image_url);
+                e.target.style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/80 via-primary/60 to-primary/40"></div>
+          )}
+        </div>
+
+        {/* Avatar circular superpuesto - CENTRADO Y MÁS GRANDE */}
+        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+          <div className="w-29 h-29 border-4 border-base-100 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+            {userProfile?.avatar_url ? (
+              <img 
+                src={userProfile.avatar_url} 
+                alt={userProfile?.username || 'Usuario'}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl font-bold text-white">
+                {(userProfile?.username || 'Usuario').charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
-
-          {/* Contenido principal del perfil - responsive */}
-          <div className="flex-1 border-r border-base-300 max-w-full md:max-w-[800px] min-w-0">
-            {/* Header con navegación */}
-            <div className="sticky top-0 z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300">
-              <div className="flex items-center space-x-4 p-4">
-                <button 
-                  onClick={() => navigate(-1)}
-                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                  <h1 className="text-xl font-bold">{userProfile?.username || 'Usuario'}</h1>
-                  {/* Remover contador de posts */}
-                </div>
-              </div>
-            </div>
-
-            {/* Header con imagen de fondo */}
-            <div className="relative">
-              {/* Imagen de fondo del header - "portada" */}
-              <div className="h-52 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 relative overflow-hidden">
-                {userProfile?.cover_image_url ? (
-                  <img 
-                    src={userProfile.cover_image_url} 
-                    alt="Imagen de portada" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.error('Error cargando imagen de portada:', userProfile.cover_image_url);
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/80 via-primary/60 to-primary/40"></div>
-                )}
-              </div>
-
-              {/* Avatar circular superpuesto - CENTRADO Y MÁS GRANDE */}
-              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-                <div className="w-29 h-29 border-4 border-base-100 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                  {userProfile?.avatar_url ? (
-                    <img 
-                      src={userProfile.avatar_url} 
-                      alt={userProfile?.username || 'Usuario'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-2xl font-bold text-white">
-                      {(userProfile?.username || 'Usuario').charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                
-                {/* XP debajo del avatar */}
-                <div className='absolute -bottom-5 left-1/2 transform -translate-x-1/2'>
-                <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg border-2 border-white inline-flex items-center justify-center min-w-0">
-                    <span className="whitespace-nowrap">{userProfile?.experience_points || 0}</span>
-                    <span className="ml-1 whitespace-nowrap">XP</span>                  
-                </div>
-                </div>
-              </div>
-
-              {/* Botón Editar Perfil */}
-              <div className="absolute bottom-4 right-4">
-                <button 
-                  onClick={openEditModal}
-                  className="btn btn-outline btn-sm rounded-full border-base-100 bg-base-100/80 backdrop-blur-sm hover:bg-base-100 px-4"
-                >
-                  <Edit className="w-3 h-3 mr-1" />
-                  Editar perfil
-                </button>
-              </div>
-            </div>
-
-            {/* Información del perfil - Layout compacto con flex */}
-            <div className="px-4 pt-14 pb-4">
-              {/* Contenedor principal con flex */}
-              <div className="flex justify-between items-start">
-                {/* Lado izquierdo: Info del usuario */}
-                <div className="flex-1 min-w-0">
-                  {/* Nombre del usuario - MÁS GRANDE */}
-                  <h2 className="text-2xl font-bold text-base-content mb-1">
-                    {userProfile?.username || 'Usuario'}
-                  </h2>
-                  <p className="text-base text-base-content/70 mb-1">
-                    @{userProfile?.username || 'usuario'}
-                  </p>
-                  
-                  {/* Escudo del equipo - MÁS GRANDE */}
-                  {userProfile?.team && userProfile.team !== 'Sin Equipo' && (
-                    <div className="flex items-center space-x-2 mb-2">
-                      <TeamBadge team={userProfile.team} size="lg" />
-                      <span className="text-lg font-medium text-primary">
-                        {userProfile.team}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Lado derecho: Estadísticas de seguimiento */}
-                <div className="flex flex-col items-end space-y-2 ml-4">
-                  {/* Seguidores y Siguiendo */}
-                  <div className="flex items-center space-x-4 text-sm">
-                    <div className="text-center">
-                      <div className="font-bold text-lg">{userStats.followers}</div>
-                      <div className="text-base-content/70">Seguidores</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold text-lg">{userStats.following}</div>
-                      <div className="text-base-content/70">Siguiendo</div>
-                    </div>
-                  </div>
-                  
-                  {/* Website si existe - Debajo de las estadísticas */}
-                  {userProfile?.website && (
-                    <a 
-                      href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline text-sm flex items-center space-x-1 max-w-40"
-                    >
-                      <span>🔗</span>
-                      <span className="truncate">{userProfile.website}</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {/* Bio/Descripción - Caja separada */}
-              {userProfile?.bio && (
-                <div className="mt-4 p-3 bg-base-200 rounded-lg border">
-                  <p className="text-base-content/90 text-sm leading-relaxed">{userProfile.bio}</p>
-                </div>
-              )}
-
-              {/* Ubicación y fecha de unión - Compacto */}
-              <div className="mt-4 flex flex-wrap gap-4 text-sm text-base-content/70">
-                {userProfile?.location && (
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>{userProfile.location}</span>
-                  </div>
-                )}
-                <div className="flex items-center space-x-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    Se unió en {userProfile?.created_at 
-                      ? new Date(userProfile.created_at).toLocaleDateString('es-ES', { 
-                          year: 'numeric', 
-                          month: 'long' 
-                        })
-                      : 'February 2023'
-                    }
-                  </span>
-                </div>
-              </div>
-
-              {/* Solo Posts count - simplificado */}
-            </div>
-
-            {/* Pestaña única - Solo Posts centrado con contador */}
-            <div className="border-b border-base-300">
-              <div className="flex justify-center">
-                <div className="px-6 py-4 text-sm font-medium border-b-2 border-primary text-primary">
-                  Posts ({userStats.posts})
-                </div>
-              </div>
-            </div>
-
-            {/* Contenido de las pestañas */}
-            <div className="pb-16 md:pb-20">
-              {activeTab === 'posts' && (
-                <div>
-                  {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <p className="ml-2 text-base-content/70">Cargando posts...</p>
-                    </div>
-                  ) : posts.length > 0 ? (
-                    <div>
-                      {posts.map((post) => (
-                        <PostCard key={post.id} post={post} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <h3 className="text-xl font-bold mb-2">No has publicado nada aún</h3>
-                      <p className="text-base-content/60 mb-4">
-                        Cuando publiques, tus posts aparecerán aquí.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeTab !== 'posts' && (
-                <div className="text-center py-12">
-                  <h3 className="text-xl font-bold mb-2">Próximamente</h3>
-                  <p className="text-base-content/60">
-                    Esta sección estará disponible pronto.
-                  </p>
-                </div>
-              )}
-            </div>
+          
+          {/* XP debajo del avatar */}
+          <div className='absolute -bottom-5 left-1/2 transform -translate-x-1/2'>
+          <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg border-2 border-white inline-flex items-center justify-center min-w-0">
+              <span className="whitespace-nowrap">{userProfile?.experience_points || 0}</span>
+              <span className="ml-1 whitespace-nowrap">XP</span>                  
           </div>
-
-          {/* Panel derecho estilo Twitter - solo visible en pantallas grandes */}
-          <div className="hidden lg:block lg:w-96 p-4">
-            <RightPanel />
-          </div>
-
-          {/* Navegación móvil fija abajo */}
-          <div className="fixed bottom-0 left-0 right-0 bg-base-100 border-t border-base-300 md:hidden z-50">
-            <div className="flex justify-around py-2">
-              <Link to="/para-ti" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-                </svg>
-                <span className="text-xs mt-1">Inicio</span>
-              </Link>
-              <Link to="/explorar" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                <span className="text-xs mt-1">Buscar</span>
-              </Link>
-              <Link to="/notificaciones" className="flex flex-col items-center p-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM6 17H1l5 5v-5z"/>
-                </svg>
-                <span className="text-xs mt-1">Notif</span>
-              </Link>
-              <Link to="/perfil" className="flex flex-col items-center p-2 text-primary">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
-                <span className="text-xs mt-1">Perfil</span>
-              </Link>
-            </div>
           </div>
         </div>
+
+        {/* Botón Editar Perfil */}
+        <div className="absolute bottom-4 right-4">
+          <button 
+            onClick={openEditModal}
+            className="btn btn-outline btn-sm rounded-full border-base-100 bg-base-100/80 backdrop-blur-sm hover:bg-base-100 px-4"
+          >
+            <Edit className="w-3 h-3 mr-1" />
+            Editar perfil
+          </button>
+        </div>
+      </div>
+
+      {/* Información del perfil - Layout compacto con flex */}
+      <div className="px-4 pt-14 pb-4">
+        {/* Contenedor principal con flex */}
+        <div className="flex justify-between items-start">
+          {/* Lado izquierdo: Info del usuario */}
+          <div className="flex-1 min-w-0">
+            {/* Nombre del usuario - MÁS GRANDE */}
+            <h2 className="text-2xl font-bold text-base-content mb-1">
+              {userProfile?.username || 'Usuario'}
+            </h2>
+            <p className="text-base text-base-content/70 mb-1">
+              @{userProfile?.username || 'usuario'}
+            </p>
+            
+            {/* Escudo del equipo - MÁS GRANDE */}
+            {userProfile?.team && userProfile.team !== 'Sin Equipo' && (
+              <div className="flex items-center space-x-2 mb-2">
+                <TeamBadge team={userProfile.team} size="lg" />
+                <span className="text-lg font-medium text-primary">
+                  {userProfile.team}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Lado derecho: Estadísticas de seguimiento */}
+          <div className="flex flex-col items-end space-y-2 ml-4">
+            {/* Seguidores y Siguiendo */}
+            <div className="flex items-center space-x-4 text-sm">
+              <div className="text-center">
+                <div className="font-bold text-lg">{userStats.followers}</div>
+                <div className="text-base-content/70">Seguidores</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-lg">{userStats.following}</div>
+                <div className="text-base-content/70">Siguiendo</div>
+              </div>
+            </div>
+            
+            {/* Website si existe - Debajo de las estadísticas */}
+            {userProfile?.website && (
+              <a 
+                href={userProfile.website.startsWith('http') ? userProfile.website : `https://${userProfile.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline text-sm flex items-center space-x-1 max-w-40"
+              >
+                <span>🔗</span>
+                <span className="truncate">{userProfile.website}</span>
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Bio/Descripción - Caja separada */}
+        {userProfile?.bio && (
+          <div className="mt-4 p-3 bg-base-200 rounded-lg border">
+            <p className="text-base-content/90 text-sm leading-relaxed">{userProfile.bio}</p>
+          </div>
+        )}
+
+        {/* Ubicación y fecha de unión - Compacto */}
+        <div className="mt-4 flex flex-wrap gap-4 text-sm text-base-content/70">
+          {userProfile?.location && (
+            <div className="flex items-center space-x-1">
+              <MapPin className="w-4 h-4" />
+              <span>{userProfile.location}</span>
+            </div>
+          )}
+          <div className="flex items-center space-x-1">
+            <Calendar className="w-4 h-4" />
+            <span>
+              Se unió en {userProfile?.created_at 
+                ? new Date(userProfile.created_at).toLocaleDateString('es-ES', { 
+                    year: 'numeric', 
+                    month: 'long' 
+                  })
+                : 'February 2023'
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Pestaña única - Solo Posts centrado con contador */}
+      <div className="border-b border-base-300">
+        <div className="flex justify-center">
+          <div className="px-6 py-4 text-sm font-medium border-b-2 border-primary text-primary">
+            Posts ({userStats.posts})
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido de las pestañas */}
+      <div className="pb-16 md:pb-20">
+        {activeTab === 'posts' && (
+          <div>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="ml-2 text-base-content/70">Cargando posts...</p>
+              </div>
+            ) : posts.length > 0 ? (
+              <div>
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-bold mb-2">No has publicado nada aún</h3>
+                <p className="text-base-content/60 mb-4">
+                  Cuando publiques, tus posts aparecerán aquí.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab !== 'posts' && (
+          <div className="text-center py-12">
+            <h3 className="text-xl font-bold mb-2">Próximamente</h3>
+            <p className="text-base-content/60">
+              Esta sección estará disponible pronto.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Modal de edición de perfil - Estilo Twitter */}
@@ -804,7 +743,7 @@ const Profile = () => {
           isOpen={showImageCropper}
         />
       )}
-    </>
+    </AppLayout>
   )
 }
 

@@ -1,4 +1,4 @@
-import { getEscudoByTeam } from '../data/equipos'
+import { getEscudoByTeam } from '../../data/equipos'
 
 const TeamBadge = ({ 
   team, 
@@ -46,4 +46,4 @@ const TeamBadge = ({
   )
 }
 
-export default TeamBadge 
+export default TeamBadge

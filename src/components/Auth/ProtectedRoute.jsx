@@ -1,5 +1,5 @@
-import { useAuth } from '../context/AuthContext.jsx'
-import Auth from '../pages/Auth'
+import { useAuth } from '../../context/AuthContext.jsx'
+import Auth from '../../pages/Auth'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -22,4 +22,4 @@ const ProtectedRoute = ({ children }) => {
   return children
 }
 
-export default ProtectedRoute 
+export default ProtectedRoute

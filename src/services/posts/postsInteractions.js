@@ -23,64 +23,144 @@ export const likePost = async (postId, userId) => {
     console.log('👍 Procesando like de post:', { postId, userId })
 
     // 1. Verificar si ya tiene algún voto (like o dislike)
-    const { data: existingVote } = await supabase
+    const { data: existingVote, error: checkError } = await supabase
       .from('post_likes')
       .select('is_like')
       .eq('post_id', postId)
       .eq('user_id', userId)
       .single()
 
+    // Manejar error específico cuando no hay registro
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error verificando voto existente:', checkError)
+      return { success: false, error: checkError.message }
+    }
+
     if (existingVote) {
       if (existingVote.is_like === true) {
         // Ya tiene like - remover like
-        await supabase
+        const { error: deleteError } = await supabase
           .from('post_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', userId)
         
+        if (deleteError) {
+          console.error('Error removiendo like:', deleteError)
+          
+          // Manejo específico para diferentes tipos de errores
+          if (deleteError.code === '406' || deleteError.message?.includes('406')) {
+            console.warn('⚠️ Error 406 en DELETE - posible conflicto de políticas RLS')
+            // Verificar si la operación realmente falló
+            const { data: checkVote } = await supabase
+              .from('post_likes')
+              .select('is_like')
+              .eq('post_id', postId)
+              .eq('user_id', userId)
+              .single()
+            
+            // Si el voto ya no existe, la operación fue exitosa
+            if (!checkVote) {
+              console.log('✅ Like removido exitosamente (a pesar del error 406)')
+            } else {
+              return { success: false, error: 'No se pudo remover el like' }
+            }
+          } else {
+            return { success: false, error: deleteError.message }
+          }
+        }
+        
         console.log('❌ Like de post removido')
       } else {
-        // Tiene dislike - cambiar a like (UPDATE)
-        await supabase
+        // Tiene dislike - ELIMINAR Y AGREGAR LIKE (en lugar de UPDATE)
+        console.log('🔄 Eliminando dislike y agregando like...')
+        
+        // Primero eliminar el dislike
+        const { error: deleteError } = await supabase
           .from('post_likes')
-          .update({ is_like: true })
+          .delete()
           .eq('post_id', postId)
           .eq('user_id', userId)
         
-        console.log('🔄 Dislike cambiado a like')
+        if (deleteError) {
+          console.error('Error eliminando dislike:', deleteError)
+          return { success: false, error: deleteError.message }
+        }
+        
+        // Luego agregar el like
+        const { error: insertError } = await supabase
+          .from('post_likes')
+          .insert({ post_id: postId, user_id: userId, is_like: true })
+        
+        if (insertError) {
+          console.error('Error agregando like después de eliminar dislike:', insertError)
+          return { success: false, error: insertError.message }
+        }
+        
+        console.log('🔄 Dislike eliminado y like agregado')
       }
     } else {
       // No tiene voto - agregar like
-      await supabase
+      const { error: insertError } = await supabase
         .from('post_likes')
         .insert({ post_id: postId, user_id: userId, is_like: true })
+      
+      if (insertError) {
+        console.error('Error agregando like:', insertError)
+        return { success: false, error: insertError.message }
+      }
       
       console.log('✅ Like de post agregado')
     }
 
     // Obtener conteos actualizados
-    const { count: likes } = await supabase
+    const { count: likes, error: likesError } = await supabase
       .from('post_likes')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId)
       .eq('is_like', true)
 
-    const { count: dislikes } = await supabase
+    if (likesError) {
+      console.error('Error contando likes:', likesError)
+      return { success: false, error: likesError.message }
+    }
+
+    const { count: dislikes, error: dislikesError } = await supabase
       .from('post_likes')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId)
       .eq('is_like', false)
 
-    // Verificar voto actual del usuario
-    const { data: currentVote } = await supabase
+    if (dislikesError) {
+      console.error('Error contando dislikes:', dislikesError)
+      return { success: false, error: dislikesError.message }
+    }
+
+    // Verificar voto actual del usuario después de un pequeño delay
+    // para asegurar que la transacción se complete
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    const { data: currentVote, error: voteError } = await supabase
       .from('post_likes')
       .select('is_like')
       .eq('post_id', postId)
       .eq('user_id', userId)
       .single()
 
+    // Solo reportar error si no es el caso de "no encontrado"
+    if (voteError && voteError.code !== 'PGRST116') {
+      console.error('Error verificando voto actual:', voteError)
+      return { success: false, error: voteError.message }
+    }
+
     const userVote = currentVote ? (currentVote.is_like ? 1 : -1) : 0
+    
+    console.log('🔍 Voto final verificado (LIKE):', { 
+      currentVote, 
+      userVote, 
+      likes_count: likes || 0, 
+      dislikes_count: dislikes || 0 
+    })
 
     return {
       success: true,
@@ -101,7 +181,7 @@ export const likePost = async (postId, userId) => {
 }
 
 /**
- * Dar dislike a un post - CON INTERCAMBIO AUTOMÁTICO OPTIMIZADO
+ * Dar dislike a un post - CON INTERCAMBIO AUTOMÁTICO CORREGIDO
  * @param {string} postId - ID del post
  * @param {string} userId - ID del usuario
  * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
@@ -115,64 +195,124 @@ export const dislikePost = async (postId, userId) => {
     console.log('👎 Procesando dislike de post:', { postId, userId })
 
     // 1. Verificar si ya tiene algún voto (like o dislike)
-    const { data: existingVote } = await supabase
+    const { data: existingVote, error: checkError } = await supabase
       .from('post_likes')
       .select('is_like')
       .eq('post_id', postId)
       .eq('user_id', userId)
       .single()
 
+    // Manejar error específico cuando no hay registro
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error verificando voto existente:', checkError)
+      return { success: false, error: checkError.message }
+    }
+
     if (existingVote) {
       if (existingVote.is_like === false) {
-        // Ya tiene dislike - remover dislike
-        await supabase
+        // Ya tiene dislike - CAMBIAR A LIKE (en lugar de remover)
+        const { error: updateError } = await supabase
+          .from('post_likes')
+          .update({ is_like: true })
+          .eq('post_id', postId)
+          .eq('user_id', userId)
+        
+        if (updateError) {
+          console.error('Error cambiando dislike a like:', updateError)
+          return { success: false, error: updateError.message }
+        }
+        
+        console.log('🔄 Dislike cambiado a like')
+      } else {
+        // Tiene like - ELIMINAR Y AGREGAR DISLIKE (en lugar de UPDATE)
+        console.log('🔄 Eliminando like y agregando dislike...')
+        
+        // Primero eliminar el like
+        const { error: deleteError } = await supabase
           .from('post_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', userId)
         
-        console.log('❌ Dislike de post removido')
-      } else {
-        // Tiene like - cambiar a dislike (UPDATE)
-        await supabase
-          .from('post_likes')
-          .update({ is_like: false })
-          .eq('post_id', postId)
-          .eq('user_id', userId)
+        if (deleteError) {
+          console.error('Error eliminando like:', deleteError)
+          return { success: false, error: deleteError.message }
+        }
         
-        console.log('🔄 Like cambiado a dislike')
+        // Luego agregar el dislike
+        const { error: insertError } = await supabase
+          .from('post_likes')
+          .insert({ post_id: postId, user_id: userId, is_like: false })
+        
+        if (insertError) {
+          console.error('Error agregando dislike después de eliminar like:', insertError)
+          return { success: false, error: insertError.message }
+        }
+        
+        console.log('🔄 Like eliminado y dislike agregado')
       }
     } else {
       // No tiene voto - agregar dislike
-      await supabase
+      const { error: insertError } = await supabase
         .from('post_likes')
         .insert({ post_id: postId, user_id: userId, is_like: false })
+      
+      if (insertError) {
+        console.error('Error agregando dislike:', insertError)
+        return { success: false, error: insertError.message }
+      }
       
       console.log('✅ Dislike de post agregado')
     }
 
     // Obtener conteos actualizados
-    const { count: likes } = await supabase
+    const { count: likes, error: likesError } = await supabase
       .from('post_likes')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId)
       .eq('is_like', true)
 
-    const { count: dislikes } = await supabase
+    if (likesError) {
+      console.error('Error contando likes:', likesError)
+      return { success: false, error: likesError.message }
+    }
+
+    const { count: dislikes, error: dislikesError } = await supabase
       .from('post_likes')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId)
       .eq('is_like', false)
 
-    // Verificar voto actual del usuario
-    const { data: currentVote } = await supabase
+    if (dislikesError) {
+      console.error('Error contando dislikes:', dislikesError)
+      return { success: false, error: dislikesError.message }
+    }
+
+    // Verificar voto actual del usuario después de un pequeño delay
+    // para asegurar que la transacción se complete
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    const { data: currentVote, error: voteError } = await supabase
       .from('post_likes')
       .select('is_like')
       .eq('post_id', postId)
       .eq('user_id', userId)
       .single()
 
+    // Solo reportar error si no es el caso de "no encontrado"
+    if (voteError && voteError.code !== 'PGRST116') {
+      console.error('Error verificando voto actual:', voteError)
+      return { success: false, error: voteError.message }
+    }
+
     const userVote = currentVote ? (currentVote.is_like ? 1 : -1) : 0
+    
+    console.log('🔍 Voto final verificado:', { 
+      currentVote, 
+      userVote, 
+      likes_count: likes || 0, 
+      dislikes_count: dislikes || 0 
+    })
 
     return {
       success: true,

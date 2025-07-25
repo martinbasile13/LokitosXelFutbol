@@ -1,16 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
-import Avatar from './Avatar'
-import { validateFile } from '../services/mediaService'
-import { createPost } from '../services/posts'
-import EmojiPicker from 'emoji-picker-react'
-import { 
-  Camera, 
-  Video, 
-  X, 
-  Loader2,
-  Smile
-} from 'lucide-react'
+import { useState, useRef } from 'react'
+import { useAuth } from '../../context/AuthContext.jsx'
+import Avatar from '../UI/Avatar'
+import { createPost } from '../../services/posts'
+import TextArea from './TextArea'
+import EmojiPickerComponent from './EmojiPicker'
+import { Loader2, Camera, Video, X } from 'lucide-react'
+import { validateFile } from '../../services/mediaService'
 
 const UPLOAD_ENDPOINT = 'https://falling-boat-f7d7.basiledev-oficial.workers.dev/upload';
 
@@ -26,9 +21,7 @@ const PostComposer = ({
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isPosting, setIsPosting] = useState(false)
   const [isComposerFocused, setIsComposerFocused] = useState(isModal)
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const textareaRef = useRef(null)
-  const emojiPickerRef = useRef(null)
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
@@ -41,6 +34,11 @@ const PostComposer = ({
         alert(validation.error)
       }
     }
+  }
+
+  const removeFile = () => {
+    setSelectedFile(null)
+    setPreviewUrl(null)
   }
 
   const uploadFileToWorker = async (file) => {
@@ -101,11 +99,11 @@ const PostComposer = ({
           ...result.data,
           views_count: 0,
           likes_count: 0,
-          dislikes_count: 0, // Agregar contador de dislikes
+          dislikes_count: 0,
           comments_count: 0,
-          user_vote: 0, // Sin voto inicial
+          user_vote: 0,
           is_liked: false,
-          is_disliked: false // Agregar estado de dislike
+          is_disliked: false
         }
 
         // Limpiar formulario
@@ -135,10 +133,6 @@ const PostComposer = ({
     }
   }
 
-  // Calcular el progreso del círculo (0-100)
-  const progressPercentage = Math.min((newPost.length / 400) * 100, 100)
-  const isOverLimit = newPost.length > 400
-
   const handleComposerFocus = () => {
     setIsComposerFocused(true)
   }
@@ -150,8 +144,7 @@ const PostComposer = ({
     }
   }
 
-  const onEmojiClick = (emojiData) => {
-    const emoji = emojiData.emoji
+  const handleEmojiSelect = (emoji) => {
     const textarea = textareaRef.current
     
     if (textarea) {
@@ -169,38 +162,11 @@ const PostComposer = ({
         textarea.focus()
       }, 0)
     }
-    
-    setShowEmojiPicker(false)
   }
 
-  // Cerrar emoji picker cuando se hace click afuera
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
-        setShowEmojiPicker(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-    }
-  }, [newPost])
-
-  // Auto-focus si es modal
-  useEffect(() => {
-    if (isModal && textareaRef.current) {
-      textareaRef.current.focus()
-    }
-  }, [isModal])
+  // Calcular el progreso del círculo (0-100)
+  const progressPercentage = Math.min((newPost.length / 400) * 100, 100)
+  const isOverLimit = newPost.length > 400
 
   return (
     <div className={`transition-all duration-300 ${
@@ -215,31 +181,24 @@ const PostComposer = ({
           src={userProfile?.avatar_url}
           alt={userProfile?.username || 'Usuario'}
           name={userProfile?.username || 'Usuario'}
-          team={userProfile?.team} // Agregar equipo del usuario
+          team={userProfile?.team}
           size="md"
           className="flex-shrink-0"
         />
         
         <div className="flex-1 min-w-0">
-          <textarea
-            ref={textareaRef}
+          <TextArea
             value={newPost}
             onChange={(e) => setNewPost(e.target.value)}
             onFocus={handleComposerFocus}
             onBlur={handleComposerBlur}
             placeholder={placeholder}
-            className={`textarea textarea-ghost w-full resize-none focus:outline-none overflow-hidden transition-all duration-200 ${
-              isComposerFocused 
-                ? 'min-h-24 md:min-h-32 text-lg md:text-xl placeholder:text-base-content/40' 
-                : 'min-h-16 md:min-h-20 text-base md:text-lg'
-            }`}
-            style={{ 
-              minHeight: isComposerFocused ? (window.innerWidth >= 768 ? '128px' : '96px') : (window.innerWidth >= 768 ? '80px' : '64px'),
-              maxHeight: isComposerFocused ? '400px' : '200px'
-            }}
+            isComposerFocused={isComposerFocused}
+            isModal={isModal}
+            ref={textareaRef}
           />
           
-          {/* Preview de archivo - responsive CON PROPORCIONES ORIGINALES */}
+          {/* Preview de archivo */}
           {previewUrl && (
             <div className="mt-3 md:mt-4 relative flex justify-center">
               {selectedFile?.type.startsWith('image') ? (
@@ -266,10 +225,7 @@ const PostComposer = ({
                 </div>
               )}
               <button 
-                onClick={() => {
-                  setSelectedFile(null)
-                  setPreviewUrl(null)
-                }}
+                onClick={removeFile}
                 className="absolute top-2 right-2 btn btn-circle btn-sm bg-black/60 hover:bg-black/80 border-none text-white backdrop-blur-sm"
               >
                 <X className="w-4 h-4" />
@@ -277,11 +233,11 @@ const PostComposer = ({
             </div>
           )}
 
-          {/* Opciones y botón de post - responsive */}
+          {/* Opciones y botón de post */}
           <div className={`flex items-center justify-between transition-all duration-300 ${
             isComposerFocused ? 'mt-4 md:mt-6' : 'mt-2 md:mt-3'
           }`}>
-            <div className="flex space-x-1 md:space-x-2 relative">
+            <div className="flex items-center space-x-1 md:space-x-2 relative">
               {/* Botón para imagen */}
               <label className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors group">
                 <Camera className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
@@ -304,32 +260,11 @@ const PostComposer = ({
                 />
               </label>
 
-              {/* Botón para emojis */}
-              <button 
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors group"
-              >
-                <Smile className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
-              </button>
-
-              {/* Emoji Picker */}
-              {showEmojiPicker && (
-                <div 
-                  ref={emojiPickerRef}
-                  className="absolute top-full left-0 z-50 mt-2"
-                >
-                  <EmojiPicker
-                    onEmojiClick={onEmojiClick}
-                    width={300}
-                    height={400}
-                    theme={document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'}
-                    previewConfig={{
-                      showPreview: false
-                    }}
-                    skinTonesDisabled
-                  />
-                </div>
-              )}
+              {/* Botón de emojis */}
+              <EmojiPickerComponent
+                onEmojiSelect={handleEmojiSelect}
+                textareaRef={textareaRef}
+              />
 
               {/* Mostrar caracteres restantes cuando está focused - solo en desktop */}
               {isComposerFocused && (
@@ -344,10 +279,9 @@ const PostComposer = ({
             </div>
 
             <div className="flex items-center space-x-2 md:space-x-4">
-              {/* Círculo de progreso - más pequeño en móvil */}
+              {/* Círculo de progreso */}
               <div className="relative w-6 h-6 md:w-8 md:h-8">
                 <svg className="w-6 h-6 md:w-8 md:h-8 transform -rotate-90" viewBox="0 0 32 32">
-                  {/* Círculo de fondo */}
                   <circle
                     cx="16"
                     cy="16"
@@ -357,7 +291,6 @@ const PostComposer = ({
                     fill="none"
                     className="text-base-300"
                   />
-                  {/* Círculo de progreso */}
                   <circle
                     cx="16"
                     cy="16"
@@ -372,7 +305,6 @@ const PostComposer = ({
                     }`}
                   />
                 </svg>
-                {/* Número en el centro si está cerca del límite - solo en desktop */}
                 {progressPercentage > 80 && (
                   <div className={`absolute inset-0 hidden md:flex items-center justify-center text-xs font-bold ${
                     isOverLimit ? 'text-error' : 'text-warning'
@@ -398,7 +330,7 @@ const PostComposer = ({
             </div>
           </div>
 
-          {/* Botones adicionales cuando está focused - solo en desktop y no modal */}
+          {/* Botones adicionales cuando está focused */}
           {isComposerFocused && !isModal && (
             <div className="hidden md:flex mt-4 pt-4 border-t border-base-300 justify-between items-center">
               <div className="text-sm text-base-content/60">

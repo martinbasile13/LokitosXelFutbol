@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
+import { useAuth } from '../context/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
+import Sidebar from '../components/Navigation/Sidebar'
 import RightPanel from '../components/RightPanel'
-import Avatar from '../components/Avatar'
-import TeamBadge from '../components/TeamBadge'
-import SearchBox from '../components/SearchBox'
+import Avatar from '../components/UI/Avatar'
+import TeamBadge from '../components/UI/TeamBadge'
+import SearchBox from '../components/UI/SearchBox'
 import { 
   getSuggestedUsers,
   followUser,
