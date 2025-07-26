@@ -17,6 +17,7 @@ const AppLayout = ({
   pageTitle,
   pageSubtitle,
   showBackButton = false,
+  onBackButton, // Nueva prop para función personalizada de volver atrás
   headerActions,
   customHeader,
   
@@ -50,12 +51,12 @@ const AppLayout = ({
   const navigate = useNavigate()
   const [internalPostModal, setInternalPostModal] = useState(false)
 
-  // Scroll to top cuando se especifica
-  useEffect(() => {
-    if (scrollToTop) {
-      window.scrollTo(0, 0)
-    }
-  }, [scrollToTop])
+  // DESHABILITADO: No queremos scroll automático al top
+  // useEffect(() => {
+  //   if (scrollToTop) {
+  //     window.scrollTo(0, 0)
+  //   }
+  // }, [scrollToTop])
 
   // Manejo interno del modal si no se proporciona externo
   const handlePostModal = onTogglePostModal || (() => setInternalPostModal(!internalPostModal))
@@ -79,15 +80,15 @@ const AppLayout = ({
     if (!pageTitle && !tabs) return null
 
     return (
-      <div className={`${stickyHeader ? 'sticky top-0' : ''} z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300`}>
+      <div className={`${stickyHeader ? 'sticky top-0' : ''} z-20 bg-base-100/95 backdrop-blur-md border-b border-base-300 shadow-sm`}>
         {/* Header principal */}
         {pageTitle && (
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center space-x-4">
               {showBackButton && (
                 <button 
-                  onClick={() => navigate(-1)}
-                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors md:hidden"
+                  onClick={() => onBackButton ? onBackButton() : navigate(-1)}
+                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -174,8 +175,15 @@ const AppLayout = ({
       )
     }
 
-    // Contenido normal
-    return children
+    // Contenido normal con padding superior si hay header sticky
+    const hasHeader = pageTitle || tabs || customHeader
+    const contentPadding = hasHeader && stickyHeader ? 'pt-4' : ''
+    
+    return (
+      <div className={contentPadding}>
+        {children}
+      </div>
+    )
   }
 
   return (

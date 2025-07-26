@@ -5,12 +5,16 @@ import PostCard from '../components/PostCard/index.jsx'
 import PostComposer from '../components/PostComposer'
 import AppLayout from '../components/AppLayout'
 import { useInfiniteScroll } from '../components/shared/hooks/useInfiniteScroll'
+import { useAutoScrollRestore } from '../components/shared/hooks/useScrollPosition'
 import { getFeedPosts, deletePost } from '../services/posts'
 import { Loader2 } from 'lucide-react'
 
 const ParaTi = () => {
   const { user } = useAuth()
   const location = useLocation()
+
+  // Hook para auto-restaurar scroll
+  useAutoScrollRestore()
 
   // Configuración de tabs
   const tabs = [

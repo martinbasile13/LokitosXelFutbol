@@ -153,17 +153,21 @@ const PostActions = ({
   return (
     <div className="flex items-center justify-between px-6 pb-4">
       <div className="flex items-center justify-between w-full max-w-2xl">
-        {/* Comentarios */}
+        {/* Comentarios/Replies */}
         <Link 
           to={`/post/${post.id}`}
-          className="flex items-center space-x-2 hover:text-gray-700 transition-colors group"
+          className="flex items-center space-x-2 hover:text-blue-600 transition-colors group"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-2 rounded-full group-hover:bg-blue-50 transition-colors">
             <MessageCircle className="w-5 h-5" />
           </div>
-          <span className="text-sm font-medium">{post.comments_count || 0}</span>
-          <span className="text-sm text-base-content/60 hidden sm:inline">Comentarios</span>
+          <span className="text-sm font-medium">
+            {post.replies_count || post.comments_count || 0}
+          </span>
+          <span className="text-sm text-base-content/60 hidden sm:inline">
+            {post.is_reply ? 'Responder' : 'Comentar'}
+          </span>
         </Link>
 
         {/* Me gusta */}

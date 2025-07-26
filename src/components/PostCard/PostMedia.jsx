@@ -7,7 +7,7 @@ import { applyVideoPreferences } from '../../services/videoPreferences'
 // Variable global para controlar qué video está reproduciéndose
 let currentPlayingVideo = null
 
-const PostMedia = ({ post }) => {
+const PostMedia = ({ post, isReply = false }) => {
   const navigate = useNavigate()
   const [showImageModal, setShowImageModal] = useState(false)
   const [isVideoVisible, setIsVideoVisible] = useState(false)
@@ -282,12 +282,14 @@ const PostMedia = ({ post }) => {
     <>
       {/* Imagen */}
       {post.image_url && (
-        <div className="px-6 pb-3">
-          <div className="mt-3 flex justify-center">
+        <div className={`px-6 pb-3 ${isReply ? 'px-4 pb-2' : ''}`}>
+          <div className={`mt-3 flex justify-center ${isReply ? 'mt-2' : ''}`}>
             <img 
               src={post.image_url} 
               alt="Imagen del post" 
-              className="max-w-full max-h-96 object-contain rounded-lg border border-base-300 cursor-pointer hover:opacity-90 transition-opacity"
+              className={`max-w-full object-contain rounded-lg border border-base-300 cursor-pointer hover:opacity-90 transition-opacity ${
+                isReply ? 'max-h-48' : 'max-h-96'
+              }`}
               onClick={handleImageClick}
               onError={(e) => {
                 console.error('Error cargando imagen:', post.image_url);
@@ -300,8 +302,8 @@ const PostMedia = ({ post }) => {
 
       {/* Video */}
       {post.video_url && (
-        <div className="px-6 pb-3">
-          <div className="mt-3 relative group cursor-pointer overflow-hidden rounded-xl">
+        <div className={`px-6 pb-3 ${isReply ? 'px-4 pb-2' : ''}`}>
+          <div className={`mt-3 relative group cursor-pointer overflow-hidden rounded-xl ${isReply ? 'mt-2' : ''}`}>
             <video 
               ref={videoRef}
               src={post.video_url} 
@@ -313,8 +315,8 @@ const PostMedia = ({ post }) => {
               preload="metadata"
               className="w-full h-auto object-contain bg-black border-2 border-black rounded-xl"
               style={{
-                maxHeight: '500px',
-                minHeight: '200px'
+                maxHeight: isReply ? '300px' : '500px',
+                minHeight: isReply ? '150px' : '200px'
               }}
               onClick={handleVideoClick}
               onError={(e) => {

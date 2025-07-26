@@ -2,62 +2,124 @@
 // POSTS FEED - OBTENER FEEDS Y POSTS CON DATOS
 // ===========================================
 // Responsabilidades:
-// - Obtener feed principal de posts
-// - Obtener posts de un usuario específico
+// - Obtener feed principal de posts (SIN replies)
+// - Obtener posts de un usuario específico (SIN replies)
 // - Combinar posts con datos de usuarios e interacciones
 
 import { supabase } from '../supabaseClient.js'
 
 /**
- * Función auxiliar para contar comentarios por post (uso interno)
- * @param {Array} postIds - IDs de posts
- * @returns {Promise<Object>} Objeto con conteos de comentarios por post
+ * Función auxiliar para contar TODAS las respuestas (recursivamente) por post
+ * @param {Array} postIds - IDs de posts principales
+ * @returns {Promise<Object>} Objeto con conteos de replies totales por post
  */
-const _getCommentsCount = async (postIds) => {
+const _getRepliesCount = async (postIds) => {
   try {
     if (!postIds || postIds.length === 0) {
       return {}
     }
 
-    const { data: commentsCounts, error } = await supabase
-      .from('comments')
-      .select('post_id')
-      .in('post_id', postIds)
+    console.log('🔢 _getRepliesCount - contando TODAS las replies (recursivo) para:', postIds.length, 'posts')
 
-    if (error) {
-      console.error('Error contando comentarios:', error)
-      return {}
+    // Función recursiva para obtener todos los descendientes de un post
+    const getAllDescendants = async (parentIds) => {
+      if (!parentIds || parentIds.length === 0) {
+        return []
+      }
+
+      // Obtener respuestas directas
+      const { data: directReplies, error } = await supabase
+        .from('posts')
+        .select('id, parent_post_id')
+        .in('parent_post_id', parentIds)
+        .eq('is_reply', true)
+        .not('parent_post_id', 'is', null)
+
+      if (error) {
+        console.error('Error obteniendo respuestas directas:', error)
+        return []
+      }
+
+      if (!directReplies || directReplies.length === 0) {
+        return []
+      }
+
+      // IDs de las respuestas directas
+      const directReplyIds = directReplies.map(reply => reply.id)
+      
+      // Obtener respuestas a estas respuestas (recursivo)
+      const nestedReplies = await getAllDescendants(directReplyIds)
+      
+      // Combinar respuestas directas + respuestas anidadas
+      return [...directReplies, ...nestedReplies]
     }
 
-    // Contar comentarios por post
+    // Obtener todas las respuestas (directas + anidadas) para cada post principal
+    const allReplies = await getAllDescendants(postIds)
+
+    // Contar replies por post principal
     const counts = {}
+    
+    // Inicializar todos los posts con 0 replies
     postIds.forEach(postId => {
       counts[postId] = 0
     })
 
-    commentsCounts?.forEach(comment => {
-      counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
+    // Función para encontrar el post principal de una respuesta
+    const findRootPost = (reply, allRepliesMap) => {
+      let currentParent = reply.parent_post_id
+      
+      // Si el parent está en nuestros posts principales, ese es el root
+      if (postIds.includes(currentParent)) {
+        return currentParent
+      }
+      
+      // Si no, buscar recursivamente hacia arriba
+      const parentReply = allRepliesMap[currentParent]
+      if (parentReply) {
+        return findRootPost(parentReply, allRepliesMap)
+      }
+      
+      // Si no encontramos el parent, asumir que el parent_post_id directo es el root
+      return currentParent
+    }
+
+    // Crear un mapa para búsqueda rápida
+    const allRepliesMap = {}
+    allReplies.forEach(reply => {
+      allRepliesMap[reply.id] = reply
     })
 
+    // Contar cada respuesta hacia su post principal
+    allReplies.forEach(reply => {
+      const rootPostId = findRootPost(reply, allRepliesMap)
+      if (postIds.includes(rootPostId)) {
+        counts[rootPostId] = (counts[rootPostId] || 0) + 1
+      }
+    })
+
+    console.log('📊 Conteos TOTALES de replies calculados:', counts)
+    console.log('🎯 Total de replies encontradas:', allReplies.length)
+    
     return counts
   } catch (error) {
-    console.error('Error en _getCommentsCount:', error)
+    console.error('Error en _getRepliesCount:', error)
     return {}
   }
 }
 
 /**
- * Obtener posts del feed principal con todos los datos necesarios - USANDO IS_LIKE CORRECTAMENTE
+ * Obtener posts del feed principal con todos los datos necesarios - SIN REPLIES
  * @param {number} limit - Límite de posts
  * @param {number} offset - Offset para paginación
  * @param {string|null} userId - ID del usuario actual (para votos)
- * @returns {Promise<Array>} Posts con datos completos
+ * @returns {Promise<Array>} Posts con datos completos (solo posts originales)
  */
 export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
   try {
-    console.log('🏠 getFeedPosts - obteniendo feed con sistema de likes/dislikes completo')
+    console.log('🏠 getFeedPosts - obteniendo feed SIN replies')
     
-    // Obtener los posts básicos
+    // Obtener los posts básicos FILTRANDO REPLIES
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select(`
@@ -67,10 +129,17 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
         image_url,
         video_url,
         views_count,
+        likes_count,
+        dislikes_count,
+        replies_count,
         created_at,
         updated_at,
-        user_id
+        user_id,
+        parent_post_id,
+        is_reply
       `)
+      .is('parent_post_id', null)  // Solo posts principales
+      .eq('is_reply', false)       // Solo posts originales
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -87,16 +156,16 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
     const userIds = [...new Set(posts.map(post => post.user_id))]
     const postIds = posts.map(post => post.id)
 
-    // Obtener perfiles, comentarios y votos
-    const [profilesResult, commentsCountResult, allLikesResult, allDislikesResult, userVotesResult] = await Promise.all([
+    // Obtener perfiles, replies count y votos
+    const [profilesResult, repliesCountResult, allLikesResult, allDislikesResult, userVotesResult] = await Promise.all([
       // Perfiles de usuarios
       supabase
         .from('profiles')
         .select('id, username, handle, experience_points, team, avatar_url')
         .in('id', userIds),
       
-      // Contar comentarios por post
-      _getCommentsCount(postIds),
+      // Contar replies por post
+      _getRepliesCount(postIds),
 
       // Obtener TODOS los likes para estos posts
       supabase
@@ -168,15 +237,16 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
     // Combinar posts con perfiles y datos de interacciones
     const postsWithData = posts.map(post => {
       const profile = profiles?.find(p => p.id === post.user_id)
-      const commentsCount = commentsCountResult[post.id] || 0
-      const likesCount = likesCounts[post.id] || 0
-      const dislikesCount = dislikesCounts[post.id] || 0
+      const repliesCount = repliesCountResult[post.id] || post.replies_count || 0
+      const likesCount = likesCounts[post.id] || post.likes_count || 0
+      const dislikesCount = dislikesCounts[post.id] || post.dislikes_count || 0
       const userVote = userVotesMap[post.id] || 0
       
       return {
         ...post,
         profiles: profile || null,
-        comments_count: commentsCount,
+        comments_count: repliesCount, // Mantener compatibilidad con sistema legacy
+        replies_count: repliesCount,  // Nuevo campo para replies
         views_count: post.views_count || 0,
         likes_count: likesCount,
         dislikes_count: dislikesCount,
@@ -186,7 +256,7 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
       }
     })
 
-    console.log('📊 Posts obtenidos con sistema completo de likes/dislikes:', postsWithData.length)
+    console.log('📊 Posts del feed obtenidos (sin replies):', postsWithData.length)
     return postsWithData
   } catch (error) {
     console.error('💥 Error en getFeedPosts:', error)
@@ -195,18 +265,18 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
 }
 
 /**
- * Obtener posts de un usuario específico con datos completos
+ * Obtener posts de un usuario específico con datos completos - SIN REPLIES
  * @param {string} userId - ID del usuario
  * @param {number} limit - Límite de posts
  * @param {number} offset - Offset para paginación
  * @param {string|null} currentUserId - ID del usuario actual (para votos)
- * @returns {Promise<Array>} Posts del usuario con datos completos
+ * @returns {Promise<Array>} Posts del usuario con datos completos (solo posts originales)
  */
 export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId = null) => {
   try {
-    console.log('🎯 getUserPosts - obteniendo posts con sistema de likes y dislikes')
+    console.log('🎯 getUserPosts - obteniendo posts SIN replies')
     
-    // Obtener posts del usuario CON VIEWS_COUNT, LIKES_COUNT Y DISLIKES_COUNT
+    // Obtener posts del usuario FILTRANDO REPLIES
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select(`
@@ -218,11 +288,16 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
         views_count,
         likes_count,
         dislikes_count,
+        replies_count,
         created_at,
         updated_at,
-        user_id
+        user_id,
+        parent_post_id,
+        is_reply
       `)
       .eq('user_id', userId)
+      .is('parent_post_id', null)  // Solo posts principales
+      .eq('is_reply', false)       // Solo posts originales
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -237,16 +312,16 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 
     const postIds = posts.map(post => post.id)
 
-    // Obtener perfil del usuario y conteo de comentarios
-    const [profileResult, commentsCountResult] = await Promise.all([
+    // Obtener perfil del usuario y conteo de replies
+    const [profileResult, repliesCountResult] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, username, handle, experience_points, team, avatar_url')
         .eq('id', userId)
         .single(),
       
-      // Contar comentarios por post
-      _getCommentsCount(postIds)
+      // Contar replies por post
+      _getRepliesCount(postIds)
     ])
 
     const { data: profile, error: profileError } = profileResult
@@ -257,12 +332,13 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 
     // Combinar posts con perfil e interacciones
     const postsWithData = posts.map(post => {
-      const commentsCount = commentsCountResult[post.id] || 0
+      const repliesCount = repliesCountResult[post.id] || post.replies_count || 0
       
       return {
         ...post,
         profiles: profile || null,
-        comments_count: commentsCount,
+        comments_count: repliesCount, // Mantener compatibilidad
+        replies_count: repliesCount,  // Nuevo campo
         views_count: post.views_count || 0,
         likes_count: post.likes_count || 0,
         dislikes_count: post.dislikes_count || 0,
@@ -272,7 +348,7 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
       }
     })
 
-    console.log('📊 Posts obtenidos con sistema de likes y dislikes:', postsWithData.length)
+    console.log('📊 Posts del usuario obtenidos (sin replies):', postsWithData.length)
     return postsWithData
   } catch (error) {
     console.error('💥 Error en getUserPosts:', error)
@@ -281,10 +357,10 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
 }
 
 /**
- * Enriquecer posts con datos de usuarios, comentarios y votos (función auxiliar)
+ * Enriquecer posts con datos de usuarios, replies y votos (función auxiliar)
  * @param {Array} posts - Posts básicos
  * @param {string|null} userId - ID del usuario actual
- * @returns {Promise<Array>} Posts enriquecidos con datos completos
+ * @returns {Promise<Array} Posts enriquecidos con datos completos
  */
 export const getPostsWithUserData = async (posts, userId = null) => {
   try {
@@ -296,16 +372,16 @@ export const getPostsWithUserData = async (posts, userId = null) => {
     const userIds = [...new Set(posts.map(post => post.user_id))]
     const postIds = posts.map(post => post.id)
 
-    // Obtener perfiles, comentarios y votos en paralelo
-    const [profilesResult, commentsCountResult, userVotesResult] = await Promise.all([
+    // Obtener perfiles, replies y votos en paralelo
+    const [profilesResult, repliesCountResult, userVotesResult] = await Promise.all([
       // Perfiles de usuarios
       supabase
         .from('profiles')
         .select('id, username, handle, experience_points, team, avatar_url')
         .in('id', userIds),
       
-      // Contar comentarios por post
-      _getCommentsCount(postIds),
+      // Contar replies por post
+      _getRepliesCount(postIds),
 
       // Obtener votos del usuario actual si está autenticado
       userId ? supabase
@@ -335,13 +411,14 @@ export const getPostsWithUserData = async (posts, userId = null) => {
     // Combinar posts con perfiles y datos de interacciones
     const postsWithData = posts.map(post => {
       const profile = profiles?.find(p => p.id === post.user_id)
-      const commentsCount = commentsCountResult[post.id] || 0
+      const repliesCount = repliesCountResult[post.id] || post.replies_count || 0
       const userVote = userVotesMap[post.id] || 0
       
       return {
         ...post,
         profiles: profile || null,
-        comments_count: commentsCount,
+        comments_count: repliesCount, // Mantener compatibilidad
+        replies_count: repliesCount,  // Nuevo campo
         views_count: post.views_count || 0,
         likes_count: post.likes_count || 0,
         dislikes_count: post.dislikes_count || 0,
@@ -357,7 +434,8 @@ export const getPostsWithUserData = async (posts, userId = null) => {
     return posts.map(post => ({
       ...post,
       profiles: null,
-      comments_count: 0,
+      comments_count: post.replies_count || 0,
+      replies_count: post.replies_count || 0,
       views_count: post.views_count || 0,
       likes_count: post.likes_count || 0,
       dislikes_count: post.dislikes_count || 0,

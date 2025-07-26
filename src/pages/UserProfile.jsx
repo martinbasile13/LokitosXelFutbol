@@ -174,12 +174,11 @@ const UserProfile = () => {
   }
 
   return (
-    <AppLayout>
-      <PageHeader 
-        title={`@${userProfile?.handle}`}
-        showBackButton={true}
-      />
-
+    <AppLayout
+      pageTitle={userProfile?.username || 'Usuario'}
+      showBackButton={true}
+      pageSubtitle={`@${userProfile?.handle || 'usuario'}`}
+    >
       {/* Header con imagen de fondo */}
       <div className="relative">
         {/* Imagen de fondo del header - "portada" */}

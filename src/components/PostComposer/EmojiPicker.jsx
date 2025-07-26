@@ -4,7 +4,8 @@ import EmojiPicker from 'emoji-picker-react'
 
 const EmojiPickerComponent = ({
   onEmojiSelect,
-  textareaRef
+  textareaRef,
+  size = 'md'
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const emojiPickerRef = useRef(null)
@@ -34,9 +35,13 @@ const EmojiPickerComponent = ({
       {/* Botón para emojis */}
       <button 
         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-        className="btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors group"
+        className={`btn btn-ghost btn-circle btn-sm hover:bg-primary/10 hover:text-primary transition-colors group ${
+          size === 'sm' ? 'btn-xs' : ''
+        }`}
       >
-        <Smile className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
+        <Smile className={`group-hover:scale-110 transition-transform ${
+          size === 'sm' ? 'w-3 h-3' : 'w-4 h-4 md:w-5 md:h-5'
+        }`} />
       </button>
 
       {/* Emoji Picker */}
@@ -47,8 +52,8 @@ const EmojiPickerComponent = ({
         >
           <EmojiPicker
             onEmojiClick={onEmojiClick}
-            width={300}
-            height={400}
+            width={size === 'sm' ? 280 : 300}
+            height={size === 'sm' ? 350 : 400}
             theme={document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'}
             previewConfig={{
               showPreview: false

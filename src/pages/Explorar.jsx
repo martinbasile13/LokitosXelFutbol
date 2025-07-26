@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import Avatar from '../components/UI/Avatar'
 import SearchBox from '../components/UI/SearchBox'
@@ -16,11 +16,13 @@ import {
   Eye,
   MessageCircle,
   Heart,
-  Share
+  Share,
+  ArrowLeft
 } from 'lucide-react'
 
 const Explorar = () => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [followingStates, setFollowingStates] = useState({})
 
   // Estado para usuarios sugeridos
@@ -246,9 +248,23 @@ const Explorar = () => {
 
   // Header personalizado con búsqueda
   const customHeader = (
-    <div className="sticky top-0 bg-base-100/80 backdrop-blur border-b border-base-300 z-10 p-4">
-      <h1 className="text-2xl font-bold mb-4">Explorar</h1>
-      <SearchBox />
+    <div className="sticky top-0 bg-base-100/80 backdrop-blur border-b border-base-300 z-10">
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={() => navigate(-1)}
+            className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold">Explorar</h1>
+          </div>
+        </div>
+      </div>
+      <div className="px-4 pb-4">
+        <SearchBox />
+      </div>
     </div>
   )
 

@@ -7,7 +7,8 @@ const TextArea = forwardRef(({
   onBlur,
   placeholder,
   isComposerFocused,
-  isModal
+  isModal,
+  compact = false
 }, ref) => {
   // Auto-resize textarea
   useEffect(() => {
@@ -24,6 +25,23 @@ const TextArea = forwardRef(({
     }
   }, [isModal, ref])
 
+  // Calcular alturas dinámicamente según el modo
+  const getMinHeight = () => {
+    if (compact) {
+      return isComposerFocused ? '80px' : '60px'
+    }
+    return isComposerFocused 
+      ? (window.innerWidth >= 768 ? '128px' : '96px') 
+      : (window.innerWidth >= 768 ? '80px' : '64px')
+  }
+
+  const getMaxHeight = () => {
+    if (compact) {
+      return '200px'
+    }
+    return isComposerFocused ? '400px' : '200px'
+  }
+
   return (
     <textarea
       ref={ref}
@@ -33,13 +51,15 @@ const TextArea = forwardRef(({
       onBlur={onBlur}
       placeholder={placeholder}
       className={`textarea textarea-ghost w-full resize-none focus:outline-none overflow-hidden transition-all duration-200 ${
-        isComposerFocused 
-          ? 'min-h-24 md:min-h-32 text-lg md:text-xl placeholder:text-base-content/40' 
-          : 'min-h-16 md:min-h-20 text-base md:text-lg'
+        compact 
+          ? 'min-h-16 text-sm md:text-base placeholder:text-base-content/40'
+          : isComposerFocused 
+            ? 'min-h-24 md:min-h-32 text-lg md:text-xl placeholder:text-base-content/40' 
+            : 'min-h-16 md:min-h-20 text-base md:text-lg'
       }`}
       style={{ 
-        minHeight: isComposerFocused ? (window.innerWidth >= 768 ? '128px' : '96px') : (window.innerWidth >= 768 ? '80px' : '64px'),
-        maxHeight: isComposerFocused ? '400px' : '200px'
+        minHeight: getMinHeight(),
+        maxHeight: getMaxHeight()
       }}
     />
   )

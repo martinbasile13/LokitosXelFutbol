@@ -28,7 +28,16 @@ export {
   getUserPostVote
 } from './postsInteractions.js'
 
-// ========== COMMENTS ==========
+// ========== POSTS REPLIES (COMENTARIOS COMO POSTS) ==========
+export {
+  createReply,
+  getPostReplies,
+  getPostThread,
+  getPostRepliesCount,
+  deleteReply
+} from './postsReplies.js'
+
+// ========== COMMENTS (SISTEMA LEGACY) ==========
 export {
   getCommentsTree,
   createComment,

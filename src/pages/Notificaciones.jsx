@@ -248,17 +248,17 @@ const Notificaciones = () => {
     >
       <div className="flex items-start space-x-3">
         <Avatar 
-          src={post.user?.avatar_url}
-          alt={post.user?.username}
-          name={post.user?.username || 'Usuario'}
-          team={post.user?.team}
+          src={post.profiles?.avatar_url}
+          alt={post.profiles?.username}
+          name={post.profiles?.username || 'Usuario'}
+          team={post.profiles?.team}
           size="sm"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-sm">{post.user?.username}</span>
-            {post.user?.team && (
-              <TeamBadge team={post.user.team} size="xs" />
+            <span className="font-semibold text-sm">{post.profiles?.username || 'Usuario'}</span>
+            {post.profiles?.team && (
+              <TeamBadge team={post.profiles.team} size="xs" />
             )}
             <span className="text-xs text-base-content/60">
               {formatNotificationTime(post.created_at)}

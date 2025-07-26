@@ -66,3 +66,144 @@
 .text-shadow {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
+
+/* Threading visual styles - Twitter-like */
+.thread-container {
+  position: relative;
+}
+
+.thread-reply-container {
+  position: relative;
+}
+
+/* Líneas de conexión más precisas estilo Twitter */
+.thread-reply-container .absolute {
+  z-index: 1;
+}
+
+/* Línea vertical principal */
+.thread-reply-container > div > .absolute:first-of-type {
+  background: #cfd9de;
+  width: 2px;
+  left: -25px;
+}
+
+/* Línea horizontal de conexión */
+.thread-reply-container > div > .absolute:nth-of-type(2) {
+  background: #cfd9de;
+  height: 2px;
+  width: 24px;
+  left: -25px;
+  top: 32px;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Hover effects para el threading */
+.thread-reply-container:hover .absolute {
+  background: #1d9bf0;
+  transition: background-color 0.2s ease;
+}
+
+/* Responder button mejorado */
+.thread-reply-button {
+  display: inline-flex;
+  align-items: center;
+  space-x: 0.5rem;
+  color: #536471;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 16px;
+}
+
+.thread-reply-button:hover {
+  color: #1d9bf0;
+  background-color: rgba(29, 155, 240, 0.1);
+}
+
+/* Indicador "Respondiendo a" estilo Twitter */
+.replying-to {
+  color: #536471;
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+.replying-to .username {
+  color: #1d9bf0;
+  text-decoration: none;
+}
+
+.replying-to .username:hover {
+  text-decoration: underline;
+}
+
+/* Composer anidado con mejor styling */
+.nested-reply-composer {
+  border-left: 4px solid #1d9bf0;
+  background: rgba(29, 155, 240, 0.03);
+  border-radius: 0 12px 12px 0;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+/* Threading levels con colores progresivos */
+.thread-level-0 { }
+.thread-level-1 { 
+  border-left-color: #1d9bf0;
+}
+.thread-level-2 { 
+  border-left-color: #7856ff;
+}
+.thread-level-3 { 
+  border-left-color: #ff6b35;
+}
+
+/* Animación suave para nuevas replies */
+.thread-reply-container {
+  animation: threadSlideIn 0.4s ease-out;
+}
+
+@keyframes threadSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejoras para el PostCard dentro del threading */
+.thread-reply-container .PostCard {
+  border-left: none !important;
+  margin-left: 0 !important;
+}
+
+/* Línea de continuación para replies largas */
+.thread-continuation {
+  position: absolute;
+  left: -25px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, #cfd9de 0%, #cfd9de 80%, transparent 100%);
+}
+
+/* Estilos para el botón "Ver más replies" */
+.show-more-replies {
+  position: relative;
+  padding-left: 32px;
+}
+
+.show-more-replies::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 24px;
+  height: 2px;
+  background: #cfd9de;
+  border-radius: 2px;
+}

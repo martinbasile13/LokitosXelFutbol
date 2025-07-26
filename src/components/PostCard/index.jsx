@@ -6,7 +6,15 @@ import PostMedia from './PostMedia'
 import PostActions from './PostActions'
 import { likePost, dislikePost, addPostView } from '../../services/posts'
 
-const PostCard = ({ post, onDelete, onVoteUpdate, onViewUpdate }) => {
+const PostCard = ({ 
+  post, 
+  onDelete, 
+  onVoteUpdate, 
+  onViewUpdate, 
+  isReply = false,
+  replyLevel = 0,
+  showConnector = false
+}) => {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -121,8 +129,39 @@ const PostCard = ({ post, onDelete, onVoteUpdate, onViewUpdate }) => {
     // Mantenemos solo para compatibilidad si se necesita
   }
 
+  // Calcular margen izquierdo para replies anidadas
+  const getReplyMargin = () => {
+    if (!isReply) return ''
+    
+    // Máximo 3 niveles de anidación con incremento de 40px cada nivel
+    const level = Math.min(replyLevel, 3)
+    return `ml-${level * 10}` // Tailwind: ml-10, ml-20, ml-30
+  }
+
+  // Clases de styling para replies
+  const getReplyClasses = () => {
+    if (!isReply) return ''
+    
+    return `
+      border-l-2 border-blue-200 
+      ${replyLevel > 0 ? 'bg-blue-50/30' : ''}
+      ${replyLevel > 1 ? 'bg-blue-50/50' : ''}
+      ${replyLevel > 2 ? 'bg-blue-50/70' : ''}
+    `.trim()
+  }
+
   return (
-    <div className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
+    <div className={`
+      block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative
+      ${getReplyMargin()}
+      ${getReplyClasses()}
+      ${isReply ? 'border-l-2 border-blue-200' : ''}
+    `}>
+      {/* Conector visual para replies */}
+      {showConnector && isReply && (
+        <div className="absolute -left-2 top-0 w-4 h-6 border-l-2 border-b-2 border-blue-200 rounded-bl-lg"></div>
+      )}
+
       <PostHeader 
         post={postData}
         user={user}
@@ -131,23 +170,28 @@ const PostCard = ({ post, onDelete, onVoteUpdate, onViewUpdate }) => {
         onFollow={handleFollow}
         onReport={handleReport}
         isDeleting={isDeleting}
+        isReply={isReply}
       />
 
       <PostContent 
         post={postData}
         onClick={handlePostClick}
+        isReply={isReply}
       />
 
       <PostMedia 
         post={postData}
+        isReply={isReply}
       />
 
+      {/* Acciones normales restauradas */}
       <PostActions 
         post={postData}
         user={user}
         isLoading={isLoading}
         onLike={handleLike}
         onDislike={handleDislike}
+        isReply={isReply}
       />
     </div>
   )
