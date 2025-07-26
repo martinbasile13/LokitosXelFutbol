@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/UI/Avatar'
 import TeamBadge from '../components/UI/TeamBadge'
-import ImageCropper from '../components/Media/ImageCropper'
 import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/Navigation/PageHeader'
 import { 
@@ -15,11 +14,36 @@ import {
   Upload,
   X
 } from 'lucide-react'
-import { getUserStats, getUserPosts, updateUserProfile } from '../services/userService'
+import { getUserStats, getUserPosts, updateUserProfileWithAvatar } from '../services/userService'
 import { deletePost } from '../services/posts'
 import { validateFile } from '../services/media/fileValidation'
 import { EQUIPOS_PRIMERA } from '../data/equipos'
 import PostCard from '../components/PostCard/index.jsx'
+
+// Importación lazy del ImageCropper para evitar errores de carga
+const LazyImageCropper = ({ showImageCropper, ...props }) => {
+  const [ImageCropper, setImageCropper] = useState(null)
+  const [loading, setLoading] = useState(false)
+  
+  useEffect(() => {
+    if (showImageCropper && !ImageCropper && !loading) {
+      setLoading(true)
+      import('../components/Media/ImageCropper')
+        .then(module => {
+          setImageCropper(() => module.default)
+          setLoading(false)
+        })
+        .catch(error => {
+          console.error('Error cargando ImageCropper:', error)
+          setLoading(false)
+        })
+    }
+  }, [showImageCropper, ImageCropper, loading])
+  
+  if (!showImageCropper || !ImageCropper) return null
+  
+  return <ImageCropper {...props} isOpen={showImageCropper} />
+}
 
 const Profile = () => {
   const navigate = useNavigate()
@@ -216,7 +240,7 @@ const Profile = () => {
         setUploadProgress(60)
       }
       
-      const result = await updateUserProfile(
+      const result = await updateUserProfileWithAvatar(
         user.id,
         editFormData,
         avatarFile,
@@ -760,15 +784,13 @@ const Profile = () => {
       )}
 
       {/* Image Cropper - Editor de imágenes con medidas específicas */}
-      {showImageCropper && (
-        <ImageCropper
-          src={originalImageSrc}
-          onCropComplete={handleCropComplete}
-          onCancel={handleCropCancel}
-          type={cropperType}
-          isOpen={showImageCropper}
-        />
-      )}
+      <LazyImageCropper
+        src={originalImageSrc}
+        onCropComplete={handleCropComplete}
+        onCancel={handleCropCancel}
+        type={cropperType}
+        showImageCropper={showImageCropper}
+      />
     </AppLayout>
   )
 }
