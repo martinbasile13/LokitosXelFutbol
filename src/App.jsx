@@ -55,7 +55,7 @@ function App() {
                   
                   {/* Rutas de perfil */}
                   <Route path="/perfil" element={<Profile />} />
-                  <Route path="/user/:userId" element={<UserProfile />} />
+                  <Route path="/user/:userHandle" element={<UserProfile />} />
                   
                   {/* Rutas de navegación */}
                   <Route path="/explorar" element={<Explorar />} />

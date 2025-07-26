@@ -55,7 +55,7 @@ const SuggestedUsers = ({
             suggestedUsers.map((suggestedUser) => (
               <div key={suggestedUser.id} className="flex items-center justify-between py-1">
                 <Link 
-                  to={`/user/${suggestedUser.id}`}
+                  to={`/user/${suggestedUser.handle || suggestedUser.username?.toLowerCase() || 'usuario'}`}
                   className="flex items-center space-x-2 flex-1 hover:bg-base-300/50 p-1 rounded-lg transition-colors"
                 >
                   <Avatar 
@@ -67,7 +67,7 @@ const SuggestedUsers = ({
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-xs truncate">{suggestedUser.username}</p>
-                    <p className="text-xs text-base-content/60 truncate">@{suggestedUser.username?.toLowerCase()}</p>
+                    <p className="text-xs text-base-content/60 truncate">@{suggestedUser.handle || suggestedUser.username?.toLowerCase() || 'usuario'}</p>
                     {suggestedUser.team && (
                       <div className="flex items-center space-x-1">
                         <span className="text-xs text-base-content/60">⚽ {suggestedUser.team}</span>

@@ -27,6 +27,7 @@ export const getUserProfile = async (userId) => {
       .select(`
         id,
         username,
+        handle,
         experience_points,
         team,
         avatar_url,
@@ -343,5 +344,50 @@ export const checkUserProfile = async (userId) => {
   } catch (error) {
     console.error('Error en checkUserProfile:', error)
     return false
+  }
+}
+
+/**
+ * Obtener perfil completo de usuario por handle
+ * @param {string} handle - Handle del usuario (sin @)
+ * @returns {Promise<Object|null>} Perfil del usuario o null si no existe
+ */
+export const getUserProfileByHandle = async (handle) => {
+  try {
+    if (!handle) {
+      throw new Error('handle es requerido')
+    }
+
+    // Limpiar el handle (remover @ si viene incluido)
+    const cleanHandle = handle.replace('@', '').toLowerCase()
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        username,
+        handle,
+        experience_points,
+        team,
+        avatar_url,
+        bio,
+        location,
+        website,
+        birth_date,
+        cover_image_url,
+        created_at
+      `)
+      .eq('handle', cleanHandle)
+      .single()
+
+    if (error) {
+      console.error('Error obteniendo perfil por handle:', error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error en getUserProfileByHandle:', error)
+    return null
   }
 }

@@ -12,7 +12,11 @@ const PostCard = ({ post, onDelete, onVoteUpdate, onViewUpdate }) => {
   const [isDeleting, setIsDeleting] = useState(false)
   const [postData, setPostData] = useState(post)
   const [viewRegistered, setViewRegistered] = useState(false)
-  const [renderKey, setRenderKey] = useState(0) // ✅ Agregar key para forzar re-render
+
+  // Actualizar postData cuando el prop post cambie
+  useEffect(() => {
+    setPostData(post)
+  }, [post])
 
   // Registrar vista automáticamente cuando el post aparece en el feed
   useEffect(() => {
@@ -108,113 +112,17 @@ const PostCard = ({ post, onDelete, onVoteUpdate, onViewUpdate }) => {
   }
 
   const handleLike = async (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    
-    if (!user?.id) {
-      window.showErrorAlert('Debes iniciar sesión para dar me gusta')
-      return
-    }
-
-    if (isLoading) return
-    setIsLoading(true)
-
-    try {
-      const result = await likePost(postData.id, user.id)
-      
-      if (result.success) {
-        console.log('📊 Datos recibidos del backend:', result.data)
-        
-        const updatedPost = {
-          ...postData,
-          likes_count: result.data.likes_count,
-          dislikes_count: result.data.dislikes_count,
-          user_vote: result.data.user_vote, // ✅ Usar directamente el user_vote del backend
-          is_liked: result.data.is_liked,
-          is_disliked: result.data.is_disliked
-        }
-        
-        console.log('🔄 Actualizando estado del post:', updatedPost)
-        setPostData(updatedPost)
-        
-        // Notificar al componente padre si existe la función
-        if (onVoteUpdate) {
-          onVoteUpdate(postData.id, {
-            likes_count: result.data.likes_count,
-            dislikes_count: result.data.dislikes_count,
-            user_vote: result.data.user_vote
-          })
-        }
-
-        // Forzar re-renderizando el componente
-        setRenderKey(prev => prev + 1)
-      } else {
-        console.error('Error al dar me gusta:', result.error)
-        window.showErrorAlert('Error al dar me gusta')
-      }
-    } catch (error) {
-      console.error('Error en handleLike:', error)
-      window.showErrorAlert('Error inesperado')
-    } finally {
-      setIsLoading(false)
-    }
+    // Esta función ya no es necesaria, PostActions maneja todo
+    // Mantenemos solo para compatibilidad si se necesita
   }
 
   const handleDislike = async (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    
-    if (!user?.id) {
-      window.showErrorAlert('Debes iniciar sesión para dar no me gusta')
-      return
-    }
-
-    if (isLoading) return
-    setIsLoading(true)
-
-    try {
-      const result = await dislikePost(postData.id, user.id)
-      
-      if (result.success) {
-        console.log('📊 Datos recibidos del backend:', result.data)
-        
-        const updatedPost = {
-          ...postData,
-          likes_count: result.data.likes_count,
-          dislikes_count: result.data.dislikes_count,
-          user_vote: result.data.user_vote, // ✅ Usar directamente el user_vote del backend
-          is_liked: result.data.is_liked,
-          is_disliked: result.data.is_disliked
-        }
-        
-        console.log('🔄 Actualizando estado del post:', updatedPost)
-        setPostData(updatedPost)
-        
-        // Notificar al componente padre si existe la función
-        if (onVoteUpdate) {
-          onVoteUpdate(postData.id, {
-            likes_count: result.data.likes_count,
-            dislikes_count: result.data.dislikes_count,
-            user_vote: result.data.user_vote
-          })
-        }
-
-        // Forzar re-renderizando el componente
-        setRenderKey(prev => prev + 1)
-      } else {
-        console.error('Error al dar no me gusta:', result.error)
-        window.showErrorAlert('Error al dar no me gusta')
-      }
-    } catch (error) {
-      console.error('Error en handleDislike:', error)
-      window.showErrorAlert('Error inesperado')
-    } finally {
-      setIsLoading(false)
-    }
+    // Esta función ya no es necesaria, PostActions maneja todo
+    // Mantenemos solo para compatibilidad si se necesita
   }
 
   return (
-    <div key={renderKey} className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
+    <div className="block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative">
       <PostHeader 
         post={postData}
         user={user}

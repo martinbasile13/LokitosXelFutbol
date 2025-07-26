@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import Avatar from '../components/UI/Avatar'
 import TeamBadge from '../components/UI/TeamBadge'
 import AppLayout from '../components/AppLayout'
-import PageHeader from '../components/Navigation/PageHeader'
+import { ActionButton, ContentList } from '../components/shared/PageComponents'
+import { usePageState } from '../components/shared/hooks/usePageState'
 import { 
   getNotifications,
   markAsRead,
@@ -12,11 +13,8 @@ import {
   formatNotificationTime,
   getNotificationText
 } from '../services/notificationService'
+import { getRecommendedPosts } from '../services/userService'
 import { 
-  getRecommendedPosts
-} from '../services/userService'
-import { 
-  ArrowLeft,
   Settings,
   Check,
   Heart,
@@ -31,79 +29,73 @@ import {
 const Notificaciones = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('all')
-  const [notifications, setNotifications] = useState([])
+  const [markingAsRead, setMarkingAsRead] = useState(false)
   const [recentData, setRecentData] = useState({
     followers: [],
     likes: [],
     comments: [],
     recommendedPosts: []
   })
-  const [loading, setLoading] = useState(true)
-  const [markingAsRead, setMarkingAsRead] = useState(false)
 
-  const getIconComponent = (type) => {
-    switch (type) {
-      case 'follow':
-        return UserPlus
-      case 'like':
-        return Heart
-      case 'comment':
-        return MessageCircle
-      case 'recommended_post':
-        return Star
-      default:
-        return Bell
-    }
-  }
-
+  // Configuración de tabs
   const tabs = [
     { id: 'all', label: 'Todas', icon: Bell },
     { id: 'verified', label: 'Verificadas', icon: CheckCheck },
     { id: 'mentions', label: 'Menciones', icon: MessageCircle }
   ]
 
-  useEffect(() => {
-    if (user?.id) {
-      loadNotifications()
-      loadRecentData()
+  // Estado de la página usando nuestro hook
+  const pageState = usePageState({
+    initialTab: 'all',
+    tabs,
+    initialLoading: true,
+    emptyConfig: {
+      icon: <Bell className="w-16 h-16 mx-auto text-base-content/30 mb-4" />,
+      title: 'No hay notificaciones',
+      message: 'Cuando tengas nuevas notificaciones, aparecerán aquí.',
+      action: <Link to="/para-ti" className="btn btn-primary">Ir al feed</Link>
     }
-  }, [user?.id, activeTab])
+  })
 
+  // Cargar notificaciones
   const loadNotifications = async () => {
     try {
-      setLoading(true)
-      const data = await getNotifications(user.id, activeTab, 20)
-      setNotifications(data)
+      const data = await getNotifications(user.id, pageState.activeTab, 20)
+      return data || []
     } catch (error) {
       console.error('Error cargando notificaciones:', error)
-      window.showErrorAlert('Error al cargar notificaciones')
-    } finally {
-      setLoading(false)
+      window.showErrorAlert?.('Error al cargar notificaciones')
+      return []
     }
   }
 
+  // Cargar datos recientes
   const loadRecentData = async () => {
     try {
-      // Cargar solo posts recomendados ya que las otras funciones no existen
       const recommendedPosts = await getRecommendedPosts(user.id, 3)
-
       setRecentData({
-        followers: [], // Dejar vacío por ahora
-        likes: [], // Dejar vacío por ahora
-        comments: [], // Dejar vacío por ahora
-        recommendedPosts
+        followers: [],
+        likes: [],
+        comments: [],
+        recommendedPosts: recommendedPosts || []
       })
     } catch (error) {
       console.error('Error cargando datos recientes:', error)
     }
   }
 
+  useEffect(() => {
+    if (user?.id) {
+      pageState.refreshData(loadNotifications)
+      loadRecentData()
+    }
+  }, [user?.id, pageState.activeTab])
+
   const handleMarkAsRead = async (notificationId) => {
     try {
       const result = await markAsRead(notificationId)
       if (result.success) {
-        setNotifications(prev => 
+        pageState.setData(prev => 
           prev.map(notif => 
             notif.id === notificationId 
               ? { ...notif, read: true }
@@ -121,14 +113,14 @@ const Notificaciones = () => {
       setMarkingAsRead(true)
       const result = await markAllAsRead(user.id)
       if (result.success) {
-        setNotifications(prev => 
+        pageState.setData(prev => 
           prev.map(notif => ({ ...notif, read: true }))
         )
-        window.showSuccessAlert('Todas las notificaciones marcadas como leídas')
+        window.showSuccessAlert?.('Todas las notificaciones marcadas como leídas')
       }
     } catch (error) {
       console.error('Error marcando todas como leídas:', error)
-      window.showErrorAlert('Error al marcar como leídas')
+      window.showErrorAlert?.('Error al marcar como leídas')
     } finally {
       setMarkingAsRead(false)
     }
@@ -150,6 +142,17 @@ const Notificaciones = () => {
     }
   }
 
+  const getIconComponent = (type) => {
+    switch (type) {
+      case 'follow': return UserPlus
+      case 'like': return Heart
+      case 'comment': return MessageCircle
+      case 'recommended_post': return Star
+      default: return Bell
+    }
+  }
+
+  // Renderizar item de notificación
   const renderNotificationItem = (notification) => {
     const isUnread = !notification.read
     const IconComponent = getIconComponent(notification.type)
@@ -158,7 +161,6 @@ const Notificaciones = () => {
 
     return (
       <div
-        key={notification.id}
         onClick={() => handleNotificationClick(notification)}
         className={`flex items-start space-x-3 p-4 border-b border-base-300 hover:bg-base-200/50 transition-colors cursor-pointer ${
           isUnread ? 'bg-primary/5 border-l-4 border-l-primary' : ''
@@ -238,9 +240,9 @@ const Notificaciones = () => {
     )
   }
 
+  // Renderizar post recomendado
   const renderRecommendedPost = (post) => (
     <Link
-      key={post.id}
       to={`/post/${post.id}`}
       className="block p-3 border border-base-300 rounded-lg hover:bg-base-200/50 transition-colors"
     >
@@ -278,155 +280,109 @@ const Notificaciones = () => {
     </Link>
   )
 
+  // Acciones del header
+  const headerActions = [
+    <ActionButton
+      key="mark-all"
+      icon={CheckCheck}
+      label="Marcar todas como leídas"
+      onClick={handleMarkAllAsRead}
+      loading={markingAsRead}
+      disabled={markingAsRead || pageState.data.every(n => n.read)}
+      variant="ghost"
+    />,
+    <ActionButton
+      key="settings"
+      icon={Settings}
+      onClick={() => {}}
+      variant="ghost"
+      className="btn-circle"
+    />
+  ]
+
   return (
-    <AppLayout>
-      {/* Header personalizado con botones de acción */}
-      <div className="sticky top-0 z-10 bg-base-100/80 backdrop-blur-md border-b border-base-300">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => navigate(-1)}
-              className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 transition-colors md:hidden"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold">Notificaciones</h1>
-              <p className="text-sm text-base-content/60">
-                {notifications.filter(n => !n.read).length} sin leer
-              </p>
-            </div>
-          </div>
-
-          {/* Botones de acción */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleMarkAllAsRead}
-              disabled={markingAsRead || notifications.every(n => n.read)}
-              className="btn btn-ghost btn-sm"
-            >
-              {markingAsRead ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCheck className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline ml-2">Marcar todas como leídas</span>
-            </button>
-            <button className="btn btn-ghost btn-circle btn-sm">
-              <Settings className="w-4 h-4" />
-            </button>
+    <AppLayout
+      pageTitle="Notificaciones"
+      pageSubtitle={`${pageState.data.filter(n => !n.read).length} sin leer`}
+      showBackButton={true}
+      headerActions={headerActions}
+      tabs={tabs}
+      activeTab={pageState.activeTab}
+      onTabChange={pageState.handleTabChange}
+      loading={pageState.loading}
+      loadingText="Cargando notificaciones..."
+      empty={pageState.empty}
+      emptyIcon={pageState.emptyIcon}
+      emptyTitle={pageState.emptyTitle}
+      emptyMessage={pageState.emptyMessage}
+      emptyAction={pageState.emptyAction}
+    >
+      {/* Posts recomendados */}
+      {recentData.recommendedPosts.length > 0 && (
+        <div className="p-4 border-b border-base-300">
+          <h3 className="font-bold text-lg mb-3 flex items-center">
+            <Star className="w-5 h-5 mr-2 text-yellow-500" />
+            Posts recomendados
+          </h3>
+          <div className="space-y-3">
+            {recentData.recommendedPosts.map(renderRecommendedPost)}
           </div>
         </div>
+      )}
 
-        {/* Tabs de filtros */}
-        <div className="flex border-b border-base-300">
-          {tabs.map((tab) => {
-            const TabIcon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-base-content/60 hover:text-base-content'
-                }`}
-              >
-                <TabIcon className="w-4 h-4 mr-2 inline" />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* Lista de notificaciones */}
+      {!pageState.loading && !pageState.empty && (
+        <ContentList
+          items={pageState.data}
+          renderItem={renderNotificationItem}
+          className=""
+        />
+      )}
 
-      {/* Contenido de notificaciones */}
-      <div className="pb-16 md:pb-20">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="ml-2 text-base-content/70">Cargando notificaciones...</p>
-          </div>
-        ) : (
-          <>
-            {/* Posts recomendados */}
-            {recentData.recommendedPosts.length > 0 && (
-              <div className="p-4 border-b border-base-300">
-                <h3 className="font-bold text-lg mb-3 flex items-center">
-                  <Star className="w-5 h-5 mr-2 text-yellow-500" />
-                  Posts recomendados
-                </h3>
-                <div className="space-y-3">
-                  {recentData.recommendedPosts.map(renderRecommendedPost)}
-                </div>
-              </div>
-            )}
-
-            {/* Lista de notificaciones */}
-            {notifications.length > 0 ? (
-              <div>
-                {notifications.map(renderNotificationItem)}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <Bell className="w-16 h-16 mx-auto text-base-content/30 mb-4" />
-                <h3 className="text-xl font-bold mb-2">No hay notificaciones</h3>
-                <p className="text-base-content/60 mb-4">
-                  Cuando tengas nuevas notificaciones, aparecerán aquí.
-                </p>
-                <Link to="/para-ti" className="btn btn-primary">
-                  Ir al feed
-                </Link>
-              </div>
-            )}
-
-            {/* Actividad reciente si no hay notificaciones pero hay datos */}
-            {notifications.length === 0 && (recentData.followers.length > 0 || recentData.likes.length > 0) && (
-              <div className="p-4">
-                <h3 className="font-bold text-lg mb-4">Actividad reciente</h3>
-                
-                {/* Nuevos seguidores */}
-                {recentData.followers.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="font-semibold mb-2 flex items-center">
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Nuevos seguidores
-                    </h4>
-                    <div className="space-y-2">
-                      {recentData.followers.map((follow) => (
-                        <Link
-                          key={follow.id}
-                          to={`/user/${follow.follower?.id}`}
-                          className="flex items-center space-x-3 p-3 bg-base-200/50 rounded-lg hover:bg-base-200 transition-colors"
-                        >
-                          <Avatar 
-                            src={follow.follower?.avatar_url}
-                            alt={follow.follower?.username}
-                            name={follow.follower?.username || 'Usuario'}
-                            team={follow.follower?.team}
-                            size="sm"
-                          />
-                          <div className="flex-1">
-                            <p className="font-semibold text-sm">
-                              {follow.follower?.username}
-                            </p>
-                            <p className="text-xs text-base-content/60">
-                              {formatNotificationTime(follow.created_at)}
-                            </p>
-                          </div>
-                          {follow.follower?.team && (
-                            <TeamBadge team={follow.follower.team} size="xs" />
-                          )}
-                        </Link>
-                      ))}
+      {/* Actividad reciente si no hay notificaciones pero hay datos */}
+      {pageState.data.length === 0 && (recentData.followers.length > 0 || recentData.likes.length > 0) && (
+        <div className="p-4">
+          <h3 className="font-bold text-lg mb-4">Actividad reciente</h3>
+          
+          {/* Nuevos seguidores */}
+          {recentData.followers.length > 0 && (
+            <div className="mb-6">
+              <h4 className="font-semibold mb-2 flex items-center">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Nuevos seguidores
+              </h4>
+              <div className="space-y-2">
+                {recentData.followers.map((follow) => (
+                  <Link
+                    key={follow.id}
+                    to={`/user/${follow.follower?.id}`}
+                    className="flex items-center space-x-3 p-3 bg-base-200/50 rounded-lg hover:bg-base-200 transition-colors"
+                  >
+                    <Avatar 
+                      src={follow.follower?.avatar_url}
+                      alt={follow.follower?.username}
+                      name={follow.follower?.username || 'Usuario'}
+                      team={follow.follower?.team}
+                      size="sm"
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">
+                        {follow.follower?.username}
+                      </p>
+                      <p className="text-xs text-base-content/60">
+                        {formatNotificationTime(follow.created_at)}
+                      </p>
                     </div>
-                  </div>
-                )}
+                    {follow.follower?.team && (
+                      <TeamBadge team={follow.follower.team} size="xs" />
+                    )}
+                  </Link>
+                ))}
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </AppLayout>
   )
 }

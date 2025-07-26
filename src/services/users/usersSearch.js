@@ -29,12 +29,13 @@ export const searchUsers = async (query, limit = 20, currentUserId = null) => {
       .select(`
         id,
         username,
+        handle,
         avatar_url,
         team,
         experience_points,
         bio
       `)
-      .or(`username.ilike.%${searchTerm}%,bio.ilike.%${searchTerm}%`)
+      .or(`username.ilike.%${searchTerm}%,handle.ilike.%${searchTerm}%,bio.ilike.%${searchTerm}%`)
       .order('experience_points', { ascending: false })
       .limit(limit)
 
@@ -70,6 +71,7 @@ export const getPopularUsers = async (limit = 10, currentUserId = null) => {
       .select(`
         id,
         username,
+        handle,
         avatar_url,
         team,
         experience_points,
@@ -141,6 +143,7 @@ export const getUsersByTeam = async (team, limit = 20, currentUserId = null) => 
       .select(`
         id,
         username,
+        handle,
         avatar_url,
         team,
         experience_points,
@@ -196,6 +199,7 @@ export const getSuggestedUsers = async (userId, limit = 10) => {
       .select(`
         id,
         username,
+        handle,
         avatar_url,
         team,
         experience_points,

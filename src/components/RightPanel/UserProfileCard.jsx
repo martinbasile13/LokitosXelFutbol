@@ -44,7 +44,7 @@ const UserProfileCard = ({
           {/* Info en el medio */}
           <div className="flex-1 pt-4">
             <h3 className="font-bold text-base text-white">{getDisplayName(userProfile)}</h3>
-            <p className="text-base-content/60 text-sm">@{userProfile?.username?.toLowerCase() || 'usuario'}</p>
+            <p className="text-base-content/60 text-sm">@{userProfile?.handle || userProfile?.username?.toLowerCase() || 'usuario'}</p>
           </div>
 
           {/* Icono de menú y badge del equipo */}

@@ -33,7 +33,7 @@ const PostHeader = ({
 
   return (
     <div className="flex items-start space-x-3 p-6 pb-3">
-      <Link to={`/user/${post.user_id}`}>
+      <Link to={`/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}>
         <Avatar 
           src={post.profiles?.avatar_url}
           alt={`Avatar de ${post.profiles?.username}`}
@@ -47,41 +47,46 @@ const PostHeader = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2">
           <Link 
-            to={`/user/${post.user_id}`}
+            to={`/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}
             className="hover:underline"
           >
             <h3 className="font-bold truncate max-w-[8ch] sm:max-w-[12ch] md:max-w-[16ch]" 
                 title={post.profiles?.username || 'Usuario'}>
-              {truncateText(post.profiles?.username || 'Usuario', 8)}
+              {truncateText(post.profiles?.username || 'Usuario', 12)}
             </h3>
           </Link>
-          <span className="text-base-content/50">·</span>
-          <span className="text-base-content/50 text-sm">{formatTime(post.created_at)}</span>
-          {post.profiles?.team && (
-            <TeamBadge team={post.profiles.team} size="sm" />
-          )}
-        </div>
-        
-        <div className="flex items-center space-x-2">
+          
+          {/* Handle (arroba) separado del username */}
           <Link 
-            to={`/user/${post.user_id}`}
+            to={`/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}
             className="hover:underline"
           >
-            <span className="text-base-content/70 text-sm truncate max-w-[12ch] sm:max-w-[16ch] md:max-w-[24ch]" 
-                  title={`@${post.profiles?.username || 'usuario'}`}>
-              @{truncateText(post.profiles?.username || 'usuario', 8)}
+            <span className="text-base-content/60 text-sm truncate max-w-[10ch] sm:max-w-[14ch] md:max-w-[18ch]" 
+                  title={`@${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}>
+              @{truncateText(post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario', 10)}
             </span>
           </Link>
+          
+          <span className="text-base-content/50">·</span>
+          <span className="text-base-content/50 text-sm">{formatTime(post.created_at)}</span>
+          
           {post.profiles?.team && (
             <>
               <span className="text-base-content/50">·</span>
-              <span className="text-base-content/60 text-xs truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[32ch]" 
-                    title={post.profiles.team}>
-                {truncateText(post.profiles.team, 20)}
-              </span>
+              <TeamBadge team={post.profiles.team} size="sm" />
             </>
           )}
         </div>
+        
+        {/* Segunda línea solo para el equipo si hay espacio */}
+        {post.profiles?.team && (
+          <div className="flex items-center space-x-2 mt-1 sm:hidden">
+            <span className="text-base-content/60 text-xs truncate max-w-[20ch]" 
+                  title={post.profiles.team}>
+              ⚽ {truncateText(post.profiles.team, 20)}
+            </span>
+          </div>
+        )}
       </div>
 
       <PostDropdown 

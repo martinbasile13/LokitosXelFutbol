@@ -7,6 +7,7 @@
 // ========== USER PROFILES ==========
 export {
   getUserProfile,
+  getUserProfileByHandle,
   createUserProfile,
   updateUserProfile,
   updateUserProfileWithAvatar,

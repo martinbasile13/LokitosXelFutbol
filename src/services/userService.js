@@ -8,6 +8,7 @@
 export {
   // API básica de usuarios
   getUserProfile,
+  getUserProfileByHandle,
   createUserProfile,
   updateUserProfile,
   updateUserProfileWithAvatar,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { createUserProfile } from '../services/userService'
+import { usePageState } from '../components/shared/hooks/usePageState'
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true)
@@ -10,10 +11,12 @@ const Auth = () => {
     username: '',
     confirmPassword: ''
   })
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const { signIn, signUp } = useAuth()
+  
+  // Usando el nuevo hook para estados de loading
+  const { loading, startLoading, stopLoading } = usePageState()
 
   const handleInputChange = (e) => {
     setFormData({
@@ -25,7 +28,7 @@ const Auth = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
+    startLoading('auth', isLogin ? 'Iniciando sesión...' : 'Creando cuenta...')
     setError('')
 
     try {
@@ -76,7 +79,7 @@ const Auth = () => {
       console.error('Error en autenticación:', error)
       setError('Error en el servidor')
     } finally {
-      setLoading(false)
+      stopLoading()
     }
   }
 
@@ -229,4 +232,4 @@ const Auth = () => {
   )
 }
 
-export default Auth 
+export default Auth

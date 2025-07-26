@@ -380,7 +380,7 @@ const Profile = () => {
               {userProfile?.username || 'Usuario'}
             </h2>
             <p className="text-base text-base-content/70 mb-1">
-              @{userProfile?.username || 'usuario'}
+              @{userProfile?.handle || userProfile?.username?.toLowerCase() || 'usuario'}
             </p>
             
             {/* Escudo del equipo - MÁS GRANDE */}

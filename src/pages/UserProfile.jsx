@@ -8,6 +8,7 @@ import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/Navigation/PageHeader'
 import { 
   getUserProfile,
+  getUserProfileByHandle,
   getUserStats, 
   getUserPosts,
   followUser,
@@ -26,7 +27,7 @@ import {
 } from 'lucide-react'
 
 const UserProfile = () => {
-  const { userId } = useParams()
+  const { userHandle } = useParams() // Cambio: ahora recibimos userHandle en lugar de userId
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
   const [userProfile, setUserProfile] = useState(null)
@@ -38,27 +39,35 @@ const UserProfile = () => {
   const [isFollowLoading, setIsFollowLoading] = useState(false)
 
   useEffect(() => {
-    if (userId && currentUser?.id) {
-      // Si intenta ver su propio perfil, redirigir a /perfil
-      if (userId === currentUser.id) {
-        navigate('/perfil', { replace: true })
-        return
-      }
-      
+    if (userHandle && currentUser?.id) {
       loadUserData()
     }
-  }, [userId, currentUser, navigate])
+  }, [userHandle, currentUser])
 
   const loadUserData = async () => {
     try {
       setLoading(true)
       
-      // Cargar datos del usuario en paralelo
-      const [profileResult, statsResult, postsResult, followingResult] = await Promise.all([
-        getUserProfile(userId),
-        getUserStats(userId),
-        getUserPosts(userId),
-        isFollowing(currentUser.id, userId)
+      // Primero obtener el perfil por handle
+      const profileResult = await getUserProfileByHandle(userHandle)
+      
+      if (!profileResult) {
+        setUserProfile(null)
+        setLoading(false)
+        return
+      }
+
+      // Si intenta ver su propio perfil, redirigir a /perfil
+      if (profileResult.id === currentUser.id) {
+        navigate('/perfil', { replace: true })
+        return
+      }
+      
+      // Cargar el resto de datos usando el userId obtenido
+      const [statsResult, postsResult, followingResult] = await Promise.all([
+        getUserStats(profileResult.id),
+        getUserPosts(profileResult.id),
+        isFollowing(currentUser.id, profileResult.id)
       ])
 
       setUserProfile(profileResult)
@@ -68,21 +77,22 @@ const UserProfile = () => {
       
     } catch (error) {
       console.error('Error cargando datos del usuario:', error)
+      setUserProfile(null)
     } finally {
       setLoading(false)
     }
   }
 
   const handleFollowToggle = async () => {
-    if (!currentUser?.id || !userId) return
+    if (!currentUser?.id || !userProfile?.id) return
     
     setIsFollowLoading(true)
     try {
       let result
       if (isFollowingUser) {
-        result = await unfollowUser(currentUser.id, userId)
+        result = await unfollowUser(currentUser.id, userProfile.id)
       } else {
-        result = await followUser(currentUser.id, userId)
+        result = await followUser(currentUser.id, userProfile.id)
       }
 
       if (result.success) {
@@ -151,7 +161,9 @@ const UserProfile = () => {
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-2">Usuario no encontrado</h2>
-            <p className="text-base-content/70 mb-4">El usuario que buscas no existe.</p>
+            <p className="text-base-content/70 mb-4">
+              El usuario @{userHandle} no existe.
+            </p>
             <Link to="/para-ti" className="btn btn-primary">
               Volver al inicio
             </Link>
@@ -164,7 +176,7 @@ const UserProfile = () => {
   return (
     <AppLayout>
       <PageHeader 
-        title={userProfile?.username || 'Usuario'}
+        title={`@${userProfile?.handle}`}
         showBackButton={true}
       />
 
@@ -271,7 +283,7 @@ const UserProfile = () => {
               {userProfile?.username || 'Usuario'}
             </h2>
             <p className="text-base text-base-content/70 mb-1">
-              @{userProfile?.username || 'usuario'}
+              @{userProfile?.handle}
             </p>
             
             {/* Escudo del equipo - MÁS GRANDE */}

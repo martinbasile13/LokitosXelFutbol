@@ -210,19 +210,39 @@ export const dislikePost = async (postId, userId) => {
 
     if (existingVote) {
       if (existingVote.is_like === false) {
-        // Ya tiene dislike - CAMBIAR A LIKE (en lugar de remover)
-        const { error: updateError } = await supabase
+        // Ya tiene dislike - remover dislike
+        const { error: deleteError } = await supabase
           .from('post_likes')
-          .update({ is_like: true })
+          .delete()
           .eq('post_id', postId)
           .eq('user_id', userId)
         
-        if (updateError) {
-          console.error('Error cambiando dislike a like:', updateError)
-          return { success: false, error: updateError.message }
+        if (deleteError) {
+          console.error('Error removiendo dislike:', deleteError)
+          
+          // Manejo específico para diferentes tipos de errores
+          if (deleteError.code === '406' || deleteError.message?.includes('406')) {
+            console.warn('⚠️ Error 406 en DELETE - posible conflicto de políticas RLS')
+            // Verificar si la operación realmente falló
+            const { data: checkVote } = await supabase
+              .from('post_likes')
+              .select('is_like')
+              .eq('post_id', postId)
+              .eq('user_id', userId)
+              .single()
+            
+            // Si el voto ya no existe, la operación fue exitosa
+            if (!checkVote) {
+              console.log('✅ Dislike removido exitosamente (a pesar del error 406)')
+            } else {
+              return { success: false, error: 'No se pudo remover el dislike' }
+            }
+          } else {
+            return { success: false, error: deleteError.message }
+          }
         }
         
-        console.log('🔄 Dislike cambiado a like')
+        console.log('❌ Dislike de post removido')
       } else {
         // Tiene like - ELIMINAR Y AGREGAR DISLIKE (en lugar de UPDATE)
         console.log('🔄 Eliminando like y agregando dislike...')

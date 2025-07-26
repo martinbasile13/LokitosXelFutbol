@@ -9,6 +9,44 @@
 import { supabase } from '../supabaseClient.js'
 
 /**
+ * Función auxiliar para contar comentarios por post (uso interno)
+ * @param {Array} postIds - IDs de posts
+ * @returns {Promise<Object>} Objeto con conteos de comentarios por post
+ */
+const _getCommentsCount = async (postIds) => {
+  try {
+    if (!postIds || postIds.length === 0) {
+      return {}
+    }
+
+    const { data: commentsCounts, error } = await supabase
+      .from('comments')
+      .select('post_id')
+      .in('post_id', postIds)
+
+    if (error) {
+      console.error('Error contando comentarios:', error)
+      return {}
+    }
+
+    // Contar comentarios por post
+    const counts = {}
+    postIds.forEach(postId => {
+      counts[postId] = 0
+    })
+
+    commentsCounts?.forEach(comment => {
+      counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
+    })
+
+    return counts
+  } catch (error) {
+    console.error('Error en _getCommentsCount:', error)
+    return {}
+  }
+}
+
+/**
  * Obtener posts del feed principal con todos los datos necesarios - USANDO IS_LIKE CORRECTAMENTE
  * @param {number} limit - Límite de posts
  * @param {number} offset - Offset para paginación
@@ -54,7 +92,7 @@ export const getFeedPosts = async (limit = 20, offset = 0, userId = null) => {
       // Perfiles de usuarios
       supabase
         .from('profiles')
-        .select('id, username, experience_points, team, avatar_url')
+        .select('id, username, handle, experience_points, team, avatar_url')
         .in('id', userIds),
       
       // Contar comentarios por post
@@ -203,7 +241,7 @@ export const getUserPosts = async (userId, limit = 20, offset = 0, currentUserId
     const [profileResult, commentsCountResult] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, username, experience_points, team, avatar_url')
+        .select('id, username, handle, experience_points, team, avatar_url')
         .eq('id', userId)
         .single(),
       
@@ -263,7 +301,7 @@ export const getPostsWithUserData = async (posts, userId = null) => {
       // Perfiles de usuarios
       supabase
         .from('profiles')
-        .select('id, username, experience_points, team, avatar_url')
+        .select('id, username, handle, experience_points, team, avatar_url')
         .in('id', userIds),
       
       // Contar comentarios por post
@@ -327,43 +365,5 @@ export const getPostsWithUserData = async (posts, userId = null) => {
       is_liked: false,
       is_disliked: false
     }))
-  }
-}
-
-/**
- * Función auxiliar para contar comentarios por post (uso interno)
- * @param {Array} postIds - IDs de posts
- * @returns {Promise<Object>} Objeto con conteos de comentarios por post
- */
-const _getCommentsCount = async (postIds) => {
-  try {
-    if (!postIds || postIds.length === 0) {
-      return {}
-    }
-
-    const { data: commentsCounts, error } = await supabase
-      .from('comments')
-      .select('post_id')
-      .in('post_id', postIds)
-
-    if (error) {
-      console.error('Error contando comentarios:', error)
-      return {}
-    }
-
-    // Contar comentarios por post
-    const counts = {}
-    postIds.forEach(postId => {
-      counts[postId] = 0
-    })
-
-    commentsCounts?.forEach(comment => {
-      counts[comment.post_id] = (counts[comment.post_id] || 0) + 1
-    })
-
-    return counts
-  } catch (error) {
-    console.error('Error en _getCommentsCount:', error)
-    return {}
   }
 }
