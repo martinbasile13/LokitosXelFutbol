@@ -8,6 +8,7 @@
 // - Actualizar posts
 
 import { supabase } from '../supabaseClient.js'
+import { deletePostMedia } from '../media/cloudflareStorage.js'
 
 /**
  * Crear un nuevo post
@@ -245,6 +246,29 @@ export const deletePost = async (postId, userId) => {
       if (deleteCommentsError) {
         console.error('Error eliminando comentarios:', deleteCommentsError)
         return { success: false, error: deleteCommentsError.message }
+      }
+    }
+
+    // **NUEVO: Eliminar archivos de Cloudflare antes de eliminar el post**
+    if (existingPost.image_url) {
+      try {
+        console.log('🖼️ Eliminando imagen de Cloudflare:', existingPost.image_url)
+        await deletePostMedia(existingPost.image_url)
+        console.log('✅ Imagen eliminada de Cloudflare')
+      } catch (error) {
+        console.warn('⚠️ Error eliminando imagen de Cloudflare (continuando):', error)
+        // No detener el proceso por errores de limpieza
+      }
+    }
+
+    if (existingPost.video_url) {
+      try {
+        console.log('🎥 Eliminando video de Cloudflare:', existingPost.video_url)
+        await deletePostMedia(existingPost.video_url)
+        console.log('✅ Video eliminado de Cloudflare')
+      } catch (error) {
+        console.warn('⚠️ Error eliminando video de Cloudflare (continuando):', error)
+        // No detener el proceso por errores de limpieza
       }
     }
 

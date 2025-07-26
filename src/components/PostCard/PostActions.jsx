@@ -3,6 +3,7 @@ import {
   MessageCircle, 
   Heart,
   ThumbsDown,
+  ThumbsUp,
   ChartNoAxesColumn
 } from 'lucide-react'
 
@@ -19,7 +20,7 @@ const PostActions = ({
         {/* Comentarios */}
         <Link 
           to={`/post/${post.id}`}
-          className="flex items-center space-x-2 hover:text-blue-500 transition-colors group"
+          className="flex items-center space-x-2 hover:text-gray-700 transition-colors group"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-2 rounded-full group-hover:bg-blue-50 transition-colors">
@@ -33,18 +34,18 @@ const PostActions = ({
         <button 
           className={`flex items-center space-x-2 transition-colors group ${
             post.user_vote === 1
-              ? 'text-red-500' 
-              : 'text-base-content/60 hover:text-red-500'
+              ? 'text-white-600' 
+              : 'text-base-content/60 hover:text-gray-700'
           }`}
           onClick={onLike}
           disabled={isLoading}
         >
           <div className={`p-2 rounded-full transition-colors ${
             post.user_vote === 1
-              ? 'bg-red-100' 
+              ? '' 
               : 'group-hover:bg-red-50'
           }`}>
-            <Heart className={`w-5 h-5 ${post.user_vote === 1 ? 'fill-current' : ''}`} />
+            <ThumbsUp className={`w-5 h-5 ${post.user_vote === 1 ? 'fill-current' : ''}`} />
           </div>
           <span className="text-sm font-medium">{post.likes_count || 0}</span>
           <span className="text-sm text-base-content/60 hidden sm:inline">Me gusta</span>
@@ -54,15 +55,15 @@ const PostActions = ({
         <button 
           className={`flex items-center space-x-2 transition-colors group ${
             post.user_vote === -1
-              ? 'text-blue-600' 
-              : 'text-base-content/60 hover:text-blue-600'
+              ? 'text-white-600' 
+              : 'text-base-content/60 hover:text-gray-700'
           }`}
           onClick={onDislike}
           disabled={isLoading}
         >
           <div className={`p-2 rounded-full transition-colors ${
             post.user_vote === -1
-              ? 'bg-blue-100' 
+              ? ''
               : 'group-hover:bg-blue-50'
           }`}>
             <ThumbsDown className={`w-5 h-5 ${post.user_vote === -1 ? 'fill-current' : ''}`} />

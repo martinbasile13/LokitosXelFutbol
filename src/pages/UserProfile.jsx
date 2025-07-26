@@ -14,6 +14,7 @@ import {
   unfollowUser,
   isFollowing
 } from '../services/userService'
+import { deletePost } from '../services/posts'
 import { 
   MapPin, 
   Calendar,
@@ -104,6 +105,31 @@ const UserProfile = () => {
 
   const handleReport = () => {
     alert('Función de reportar usuario en desarrollo. ¡Gracias por tu feedback!')
+  }
+
+  const handleDeletePost = async (postId) => {
+    if (!currentUser?.id) {
+      window.showErrorAlert('Debes estar autenticado para eliminar posts')
+      return
+    }
+
+    try {
+      const result = await deletePost(postId, currentUser.id)
+      
+      if (result.success) {
+        // Remover el post del estado local
+        setPosts(prev => prev.filter(post => post.id !== postId))
+        // Actualizar las estadísticas
+        setUserStats(prev => ({ ...prev, posts: prev.posts - 1 }))
+        window.showSuccessAlert('¡Post eliminado exitosamente!')
+      } else {
+        console.error('Error eliminando post:', result.error)
+        window.showErrorAlert('Error al eliminar el post: ' + (result.error?.message || 'Error desconocido'))
+      }
+    } catch (error) {
+      console.error('Error eliminando post:', error)
+      window.showErrorAlert('Error al eliminar el post')
+    }
   }
 
   if (loading) {
@@ -334,7 +360,7 @@ const UserProfile = () => {
             {posts.length > 0 ? (
               <div>
                 {posts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard key={post.id} post={post} onDelete={handleDeletePost} />
                 ))}
               </div>
             ) : (

@@ -261,7 +261,7 @@ const ParaTi = () => {
         ) : (
           <div className="">
             {posts.map((post, index) => (
-              <div key={post.id} data-index={index}>
+              <div key={`${post.id}-${index}`} data-index={index}>
                 <PostCard 
                   post={post}
                   onDelete={handleDeletePost} 

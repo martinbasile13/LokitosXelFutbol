@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react'
 import { getUserStats, getUserPosts, updateUserProfile } from '../services/userService'
+import { deletePost } from '../services/posts'
 import { validateFile } from '../services/media/fileValidation'
 import { EQUIPOS_PRIMERA } from '../data/equipos'
 import PostCard from '../components/PostCard/index.jsx'
@@ -270,6 +271,31 @@ const Profile = () => {
     }
   }
 
+  const handleDeletePost = async (postId) => {
+    if (!user?.id) {
+      window.showErrorAlert('Debes estar autenticado para eliminar posts')
+      return
+    }
+
+    try {
+      const result = await deletePost(postId, user.id)
+      
+      if (result.success) {
+        // Remover el post del estado local
+        setPosts(prev => prev.filter(post => post.id !== postId))
+        // Actualizar las estadísticas
+        setUserStats(prev => ({ ...prev, posts: prev.posts - 1 }))
+        window.showSuccessAlert('¡Post eliminado exitosamente!')
+      } else {
+        console.error('Error eliminando post:', result.error)
+        window.showErrorAlert('Error al eliminar el post: ' + (result.error?.message || 'Error desconocido'))
+      }
+    } catch (error) {
+      console.error('Error eliminando post:', error)
+      window.showErrorAlert('Error al eliminar el post')
+    }
+  }
+
   const tabs = [
     { id: 'posts', label: 'Posts', count: userStats.posts },
     { id: 'replies', label: 'Replies' },
@@ -448,7 +474,7 @@ const Profile = () => {
             ) : posts.length > 0 ? (
               <div>
                 {posts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard key={post.id} post={post} onDelete={handleDeletePost} />
                 ))}
               </div>
             ) : (

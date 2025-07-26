@@ -23,10 +23,17 @@ const Sidebar = ({ onOpenPostModal }) => {
       <div className="p-2 py-3">
         <Link to="/" className="flex justify-center xl:justify-start">
           <div className="flex items-center space-x-2 ">
+            {/* Logo para pantallas grandes */}
             <img 
               src="/logo/logo.png" 
               alt="LokitosXelFutbol" 
-              className="h-15 w-auto"
+              className="h-15 w-auto hidden xl:block"
+            />
+            {/* Logo para modo responsive */}
+            <img 
+              src="/logo/LXF2.png" 
+              alt="LokitosXelFutbol" 
+              className="h-11 w-auto xl:hidden"
             />
           </div>
         </Link>
@@ -43,14 +50,14 @@ const Sidebar = ({ onOpenPostModal }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center space-x-4 p-3 rounded-full hover:bg-base-200 transition-all duration-200 w-full group ${
+                className={`flex items-center xl:space-x-4 p-3 rounded-full hover:bg-base-200 transition-all duration-200 w-full group justify-center xl:justify-start ${
                   isActive ? 'font-bold' : ''
                 }`}
               >
                 <IconComponent className={`w-7 h-7 transition-transform group-hover:scale-110 ${
                   isActive ? 'text-primary' : ''
                 }`} />
-                <span className={`text-xl hidden xl:block ${isActive ? 'font-bold' : ''}`}>
+                <span className={`text-xl hidden xl:block xl:ml-4 ${isActive ? 'font-bold' : ''}`}>
                   {item.name}
                 </span>
               </Link>
@@ -62,7 +69,7 @@ const Sidebar = ({ onOpenPostModal }) => {
         <div className="mt-8 px-2">
           <button 
             onClick={onOpenPostModal}
-            className="btn btn-primary w-full xl:w-full rounded-full hover:scale-105 transition-transform py-3 text-lg font-bold"
+            className="btn btn-primary w-full xl:w-full rounded-full hover:scale-105 transition-transform py-3 text-lg font-bold flex items-center justify-center"
           >
             <span className="hidden xl:inline">Opinar</span>
             <PenTool className="w-6 h-6 xl:hidden" />

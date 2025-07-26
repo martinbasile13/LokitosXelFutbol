@@ -12,7 +12,7 @@ import { validateFile } from './fileValidation.js'
  * Configuración de Cloudflare
  */
 const CLOUDFLARE_CONFIG = {
-  WORKER_URL: 'https://falling-boat-f7d7.basiledev-oficial.workers.dev',
+  WORKER_URL: 'https://lokitos-worker.basiledev-oficial.workers.dev',
   ENDPOINTS: {
     UPLOAD: '/upload',
     DELETE: '/delete'
@@ -141,6 +141,8 @@ export const deletePostMedia = async (mediaUrl) => {
       return { success: true } // No hay nada que eliminar
     }
 
+    console.log('🗑️ Eliminando media de post desde URL:', mediaUrl)
+
     // Extraer la key del archivo de la URL
     const urlParts = mediaUrl.split('/')
     const fileKey = urlParts[urlParts.length - 1]
@@ -150,14 +152,17 @@ export const deletePostMedia = async (mediaUrl) => {
       return { success: true } // Continuar sin error
     }
 
-    const deleteResult = await deleteFromCloudflare(`posts/${fileKey}`)
+    console.log('📁 Key extraída del archivo:', fileKey)
+
+    // No agregar prefijo - la key ya es completa
+    const deleteResult = await deleteFromCloudflare(fileKey)
     
     if (!deleteResult.success) {
       console.error('Error eliminando media del post de Cloudflare:', deleteResult.error)
       return { success: false, error: deleteResult.error }
     }
 
-    console.log('Media del post eliminada exitosamente de Cloudflare')
+    console.log('✅ Media del post eliminada exitosamente de Cloudflare')
     return { success: true }
 
   } catch (error) {
