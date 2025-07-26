@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import TeamBadge from './TeamBadge'
+import { getEscudoByTeam } from '../../data/equipos'
 
 const Avatar = ({ 
   src, 
@@ -28,48 +29,12 @@ const Avatar = ({
     return name.charAt(0).toUpperCase()
   }
 
-  // Obtener escudo del equipo
+  // Obtener escudo del equipo usando la función centralizada
   const getTeamBadge = () => {
     if (!team || team === 'Sin Equipo') return null
     
     try {
-      // Mapear equipos a archivos de escudos - CORREGIR RUTA
-      const teamFiles = {
-        'Boca Juniors': 'boca.png',
-        'River Plate': 'river.png',
-        'Racing Club': 'racing.png',
-        'Independiente': 'independiente.png',
-        'San Lorenzo': 'san_lorenzo.png',
-        'Estudiantes': 'estudiantes.png',
-        'Gimnasia y Esgrima La Plata': 'gimnasia.png',
-        'Lanús': 'lanus.png',
-        'Banfield': 'banfield.png',
-        'Tigre': 'tigre.png',
-        'Argentinos Juniors': 'argentinos.png',
-        'Vélez Sarsfield': 'velez.png',
-        'Huracán': 'huracan.png',
-        'Newells Old Boys': 'newells.png',
-        'Rosario Central': 'rosariocentral.png',
-        'Central Córdoba': 'central_cordoba.png',
-        'Talleres': 'talleres.png',
-        'Instituto': 'instituto.png',
-        'Belgrano': 'belgrano.png',
-        'Godoy Cruz': 'godoycruz.png',
-        'Deportivo Riestra': 'riestra.png',
-        'Atlético Tucumán': 'atletico_tucuman.png',
-        'Unión': 'union.png',
-        'Defensa y Justicia': 'defensa.png',
-        'Platense': 'platense.png',
-        'Barracas Central': 'barracas.png',
-        'Sarmiento': 'sarmiento.png',
-        'Independiente Rivadavia': 'independiente_rivadavia.png'
-      }
-
-      const fileName = teamFiles[team]
-      if (fileName) {
-        return `/primeradivision/${fileName}` // CAMBIAR DE /equipos/ A /primeradivision/
-      }
-      return null
+      return getEscudoByTeam(team)
     } catch (error) {
       console.error('Error getting team badge:', error)
       return null
