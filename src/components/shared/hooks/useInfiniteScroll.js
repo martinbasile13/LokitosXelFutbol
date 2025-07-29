@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
+// Estado global para persistir posts entre navegaciones
+const globalPostsState = new Map()
+const positionAnchors = new Map() // Nuevo: guardar anclas de posición
+const MAX_POSTS = 50 // Límite estricto de posts
+const LOAD_MORE_THRESHOLD = 45 // Empezar limpieza cuando llegue a 45
+
 // Hook para manejar scroll infinito inteligente
 export const useInfiniteScroll = (config = {}) => {
   const {
@@ -8,46 +14,104 @@ export const useInfiniteScroll = (config = {}) => {
     loadThreshold = 5,
     cleanupThreshold = 25,
     postsPerLoad = 10,
-    initialLoading = true
+    initialLoading = true,
+    stateKey = 'default' // Clave para identificar el estado
   } = config
 
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(initialLoading)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [currentOffset, setCurrentOffset] = useState(0)
-  const isLoadingRef = useRef(false)
-
-  // Configurar intersection observer para detectar scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const index = parseInt(entry.target.dataset.index)
-            const remaining = items.length - index - 1
-            
-            // Cargar más items cuando queden pocos por ver
-            if (remaining <= loadThreshold && hasMore && !isLoadingRef.current) {
-              loadMore()
-            }
-          }
-        })
-      },
-      {
-        root: null,
-        rootMargin: '200px',
-        threshold: 0.1
+  // Inicializar estado desde el estado global si existe
+  const getInitialState = () => {
+    const savedState = globalPostsState.get(stateKey)
+    if (savedState) {
+      console.log(`🔄 Restaurando estado global: ${savedState.items.length} posts`)
+      // Si hay demasiados posts guardados, tomar solo los más recientes
+      if (savedState.items.length > MAX_POSTS) {
+        const recentPosts = savedState.items.slice(0, MAX_POSTS)
+        console.log(`⚡ Optimizando DOM: ${savedState.items.length} → ${recentPosts.length} posts`)
+        return {
+          ...savedState,
+          items: recentPosts
+        }
       }
-    )
+      return savedState
+    }
+    return {
+      items: [],
+      currentOffset: 0,
+      hasMore: true
+    }
+  }
 
-    // Observar los últimos elementos
-    const elements = document.querySelectorAll('[data-index]')
-    const lastFewElements = Array.from(elements).slice(-loadThreshold)
-    lastFewElements.forEach(el => observer.observe(el))
+  const initialState = getInitialState()
+  const [items, setItems] = useState(initialState.items)
+  const [loading, setLoading] = useState(initialState.items.length === 0 ? initialLoading : false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(initialState.hasMore)
+  const [currentOffset, setCurrentOffset] = useState(initialState.currentOffset)
+  const isLoadingRef = useRef(false)
+  
+  // Refs para mantener valores actuales y evitar problemas de closure
+  const itemsRef = useRef([])
+  const currentOffsetRef = useRef(0)
+  const hasMoreRef = useRef(true)
 
-    return () => observer.disconnect()
-  }, [items, hasMore, loadThreshold])
+  // Mantener refs sincronizados con states
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+
+  useEffect(() => {
+    currentOffsetRef.current = currentOffset
+  }, [currentOffset])
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore
+  }, [hasMore])
+
+  // Guardar estado en el almacén global cada vez que cambie
+  useEffect(() => {
+    globalPostsState.set(stateKey, {
+      items,
+      currentOffset,
+      hasMore
+    })
+    console.log(`💾 Estado global actualizado: ${items.length} posts`)
+  }, [items, currentOffset, hasMore, stateKey])
+
+  // Scroll listener más confiable que Intersection Observer
+  useEffect(() => {
+    const handleScroll = () => {
+      // Verificar si estamos cerca del final de la página
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+      
+      // Calcular cuánto falta para llegar al final
+      const distanceFromBottom = documentHeight - (scrollTop + windowHeight)
+      
+      // Si estamos a menos de 1000px del final, cargar más
+      if (distanceFromBottom < 1000 && hasMore && !isLoadingRef.current) {
+        loadMore()
+      }
+    }
+
+    // Agregar listener de scroll con throttling
+    let ticking = false
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll()
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', throttledScroll, { passive: true })
+    
+    return () => {
+      window.removeEventListener('scroll', throttledScroll)
+    }
+  }, [hasMore]) // Solo depende de hasMore, no de items
 
   // Cargar datos iniciales
   const loadInitial = async () => {
@@ -71,46 +135,163 @@ export const useInfiniteScroll = (config = {}) => {
     }
   }
 
-  // Cargar más datos
+  // Función para guardar ancla de posición antes de limpiar
+  const savePositionAnchor = () => {
+    const currentScrollY = window.scrollY
+    const viewportMiddle = currentScrollY + (window.innerHeight / 2)
+    
+    // Encontrar el post más cercano al centro del viewport
+    const postElements = document.querySelectorAll('[data-index]')
+    let closestPost = null
+    let closestDistance = Infinity
+    
+    postElements.forEach(element => {
+      const rect = element.getBoundingClientRect()
+      const elementCenter = currentScrollY + rect.top + (rect.height / 2)
+      const distance = Math.abs(elementCenter - viewportMiddle)
+      
+      if (distance < closestDistance) {
+        closestDistance = distance
+        const postCard = element.querySelector('[data-post-id]')
+        if (postCard) {
+          closestPost = {
+            postId: postCard.getAttribute('data-post-id'),
+            index: parseInt(element.getAttribute('data-index') || '0'),
+            offsetFromTop: rect.top,
+            scrollY: currentScrollY
+          }
+        }
+      }
+    })
+    
+    if (closestPost) {
+      positionAnchors.set(stateKey, closestPost)
+      console.log(`⚓ Ancla guardada - Post: ${closestPost.postId}, Index: ${closestPost.index}, Offset: ${closestPost.offsetFromTop}`)
+      return closestPost
+    }
+    
+    return null
+  }
+
+  // Función para restaurar posición basada en ancla
+  const restoreFromAnchor = () => {
+    const anchor = positionAnchors.get(stateKey)
+    if (!anchor) return false
+    
+    console.log(`🎯 Intentando restaurar desde ancla: ${anchor.postId}`)
+    
+    // Buscar el post ancla en el DOM actual
+    const targetElement = document.querySelector(`[data-post-id="${anchor.postId}"]`)
+    
+    if (targetElement) {
+      const rect = targetElement.getBoundingClientRect()
+      const currentScrollY = window.scrollY
+      const targetScrollY = currentScrollY + rect.top - anchor.offsetFromTop
+      
+      console.log(`✅ Ancla encontrada - restaurando posición: ${targetScrollY}`)
+      
+      setTimeout(() => {
+        window.scrollTo({
+          top: Math.max(0, targetScrollY),
+          behavior: 'instant'
+        })
+      }, 100)
+      
+      return true
+    }
+    
+    console.log(`❌ Ancla perdida - post ${anchor.postId} no encontrado`)
+    return false
+  }
+
+  // Cargar más datos con límite estricto
   const loadMore = useCallback(async () => {
-    if (isLoadingRef.current || !hasMore || !loadFunction) return
+    if (isLoadingRef.current || !hasMoreRef.current || !loadFunction) {
+      console.log('🚫 loadMore cancelado:', { 
+        isLoading: isLoadingRef.current, 
+        hasMore: hasMoreRef.current, 
+        hasLoadFunction: !!loadFunction 
+      })
+      return
+    }
     
     try {
       setLoadingMore(true)
       isLoadingRef.current = true
       
-      const newData = await loadFunction(postsPerLoad, currentOffset)
+      console.log('🔄 Cargando más posts con offset:', currentOffsetRef.current)
+      console.log('📊 Posts actuales en memoria:', itemsRef.current.length)
+      
+      const newData = await loadFunction(postsPerLoad, currentOffsetRef.current)
+      console.log('📦 Posts nuevos recibidos:', newData?.length || 0)
       
       if (!newData || newData.length === 0) {
+        console.log('🏁 No hay más posts disponibles')
         setHasMore(false)
         return
       }
 
+      // Verificar duplicados
+      const currentIds = new Set(itemsRef.current.map(item => item.id))
+      const uniqueNewData = newData.filter(item => !currentIds.has(item.id))
+      
+      if (uniqueNewData.length === 0) {
+        console.log('🔄 No hay posts únicos, incrementando offset')
+        setCurrentOffset(prev => prev + postsPerLoad)
+        setLoadingMore(false)
+        isLoadingRef.current = false
+        return
+      }
+
       setItems(prevItems => {
-        const updatedItems = [...prevItems, ...newData]
+        const updatedItems = [...prevItems, ...uniqueNewData]
         
-        // Limpiar items antiguos si superamos el threshold
-        if (updatedItems.length > cleanupThreshold) {
-          const itemsToRemove = updatedItems.length - bufferSize
-          const cleanedItems = updatedItems.slice(itemsToRemove)
+        // LÍMITE ESTRICTO: Si superamos 50 posts, hacer ventana deslizante
+        if (updatedItems.length > MAX_POSTS) {
+          console.log(`🔄 Límite alcanzado: ${updatedItems.length} posts, aplicando ventana deslizante`)
           
-          setCurrentOffset(prev => prev + postsPerLoad)
-          return cleanedItems
+          // Guardar ancla de posición ANTES de limpiar
+          const anchor = savePositionAnchor()
+          
+          // Mantener solo los últimos 40 posts para dar margen
+          const postsToKeep = 40
+          const keptItems = updatedItems.slice(-postsToKeep)
+          
+          console.log(`✂️ Ventana deslizante: ${updatedItems.length} → ${keptItems.length} posts`)
+          
+          // Intentar restaurar posición después de la limpieza
+          setTimeout(() => {
+            if (!restoreFromAnchor() && anchor) {
+              // Fallback: scroll aproximado basado en proporción
+              const proportion = anchor.index / updatedItems.length
+              const newScrollY = proportion * document.documentElement.scrollHeight
+              console.log(`🔄 Fallback proporcional: ${newScrollY}`)
+              window.scrollTo({ top: newScrollY, behavior: 'instant' })
+            }
+          }, 200)
+          
+          return keptItems
         }
         
-        setCurrentOffset(prev => prev + postsPerLoad)
+        console.log('📊 Total posts después de agregar:', updatedItems.length)
         return updatedItems
+      })
+      
+      setCurrentOffset(prev => {
+        const newOffset = prev + uniqueNewData.length
+        console.log('⬆️ Actualizando offset de', prev, 'a', newOffset)
+        return newOffset
       })
       
       setHasMore(newData.length === postsPerLoad)
       
     } catch (error) {
-      console.error('Error loading more data:', error)
+      console.error('💥 Error loading more data:', error)
     } finally {
       setLoadingMore(false)
       isLoadingRef.current = false
     }
-  }, [currentOffset, hasMore, loadFunction, postsPerLoad, bufferSize, cleanupThreshold])
+  }, [loadFunction, postsPerLoad]) // Removido 'items' de las dependencias
 
   // Agregar item al inicio
   const addItem = (newItem) => {

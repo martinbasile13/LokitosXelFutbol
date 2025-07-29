@@ -53,9 +53,11 @@ function App() {
                   <Route path="/video/:postId" element={<VideoViewer />} />
                   <Route path="/partidos" element={<Partidos />} />
                   
-                  {/* Rutas de perfil */}
-                  <Route path="/perfil" element={<Profile />} />
+                  {/* Rutas de perfil unificadas - TODAS usan /user/:userHandle */}
                   <Route path="/user/:userHandle" element={<UserProfile />} />
+                  
+                  {/* Redirigir /perfil a /user/mi-handle */}
+                  <Route path="/perfil" element={<Navigate to="/user/me" replace />} />
                   
                   {/* Rutas de navegación */}
                   <Route path="/explorar" element={<Explorar />} />

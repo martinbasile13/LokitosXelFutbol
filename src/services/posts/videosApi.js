@@ -19,56 +19,90 @@ import { getPostsWithUserData } from './postsFeed.js'
  */
 export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = null, userId = null) => {
   try {
-    let query = supabase
-      .from('posts')
-      .select(`
-        id,
-        title,
-        content,
-        video_url,
-        views_count,
-        likes_count,
-        dislikes_count,
-        created_at,
-        updated_at,
-        user_id
-      `)
-      .not('video_url', 'is', null) // Solo posts con video
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    // Si se especifica un post inicial, obtener videos a partir de ahí
+    console.log('🎬 getVideoFeed llamada con:', { limit, offset, startFromPostId, userId })
+    
+    // Si se especifica un post inicial, construir feed inteligente
     if (startFromPostId) {
-      // Primero obtener la fecha del post inicial
-      const { data: startPost } = await supabase
+      console.log('📍 Construyendo feed inteligente alrededor del post:', startFromPostId)
+      
+      // Estrategia mejorada: obtener muchos más videos y posicionar el objetivo en el centro
+      const expandedLimit = Math.max(limit * 3, 60) // Obtener más videos para mejor contexto
+      
+      // Obtener todos los videos disponibles ordenados por fecha
+      const { data: allVideos, error: videosError } = await supabase
         .from('posts')
-        .select('created_at')
-        .eq('id', startFromPostId)
-        .single()
+        .select(`
+          id, title, content, video_url, views_count, likes_count, 
+          dislikes_count, created_at, updated_at, user_id
+        `)
+        .not('video_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(expandedLimit)
 
-      if (startPost) {
-        // Obtener videos desde ese post hacia atrás y hacia adelante
-        query = supabase
+      if (videosError) {
+        console.error('Error obteniendo videos:', videosError)
+        return { success: false, error: videosError.message }
+      }
+
+      if (!allVideos || allVideos.length === 0) {
+        console.warn('⚠️ No hay videos disponibles')
+        return { success: true, posts: [] }
+      }
+
+      // Encontrar el índice del video objetivo
+      const targetIndex = allVideos.findIndex(video => video.id === startFromPostId)
+      console.log('🎯 Video objetivo encontrado en índice:', targetIndex, 'de', allVideos.length)
+
+      if (targetIndex === -1) {
+        console.warn('⚠️ Video objetivo no encontrado en la consulta expandida')
+        // Fallback: usar feed normal
+        const { data: fallbackVideos } = await supabase
           .from('posts')
           .select(`
-            id,
-            title,
-            content,
-            video_url,
-            views_count,
-            likes_count,
-            dislikes_count,
-            created_at,
-            updated_at,
-            user_id
+            id, title, content, video_url, views_count, likes_count, 
+            dislikes_count, created_at, updated_at, user_id
           `)
           .not('video_url', 'is', null)
           .order('created_at', { ascending: false })
           .limit(limit)
+        
+        if (fallbackVideos) {
+          const videosWithData = await getPostsWithUserData(fallbackVideos, userId)
+          return { success: true, posts: videosWithData }
+        }
+        return { success: true, posts: [] }
+      }
+
+      // Estrategia inteligente: posicionar el video objetivo en el primer tercio del feed
+      const targetPositionInFeed = Math.floor(limit / 3) // Posición objetivo (ej: posición 7 de 20)
+      
+      // Calcular rango para extraer videos
+      const startIndex = Math.max(0, targetIndex - targetPositionInFeed)
+      const endIndex = Math.min(allVideos.length, startIndex + limit)
+      
+      // Extraer el segmento de videos
+      const selectedVideos = allVideos.slice(startIndex, endIndex)
+      
+      console.log('📊 Videos seleccionados:', selectedVideos.length)
+      console.log('🎯 Posición objetivo en feed:', selectedVideos.findIndex(v => v.id === startFromPostId))
+      
+      if (selectedVideos.length > 0) {
+        const videosWithData = await getPostsWithUserData(selectedVideos, userId)
+        return { success: true, posts: videosWithData }
       }
     }
 
-    const { data: videos, error: videosError } = await query
+    // Fallback: feed normal si no hay startFromPostId o algo falla
+    console.log('📺 Usando feed normal con offset:', offset)
+    const { data: videos, error: videosError } = await supabase
+      .from('posts')
+      .select(`
+        id, title, content, video_url, views_count, likes_count, 
+        dislikes_count, created_at, updated_at, user_id
+      `)
+      .not('video_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (videosError) {
       return { success: false, error: videosError.message }
@@ -78,11 +112,10 @@ export const getVideoFeed = async (limit = 20, offset = 0, startFromPostId = nul
       return { success: true, posts: [] }
     }
 
-    // Enriquecer videos con datos de usuarios e interacciones
     const videosWithData = await getPostsWithUserData(videos, userId)
-
     return { success: true, posts: videosWithData }
   } catch (error) {
+    console.error('💥 Error en getVideoFeed:', error)
     return { success: false, error: error.message }
   }
 }

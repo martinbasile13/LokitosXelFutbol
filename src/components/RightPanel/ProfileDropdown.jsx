@@ -40,8 +40,8 @@ const ProfileDropdown = ({
         {/* Opciones del menú */}
         <div className="py-1">
           <Link 
-            to="/perfil"
-            className="flex items-center space-x-3 px-4 py-3 hover:bg-base-200 transition-colors"
+            to={`/user/${userProfile?.handle || 'me'}`}
+            className="flex items-center gap-3 px-4 py-2 hover:bg-base-200 transition-colors"
             onClick={onClose}
           >
             <div className="w-5 h-5 flex items-center justify-center">

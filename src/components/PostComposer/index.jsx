@@ -2,8 +2,10 @@ import { useState, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import Avatar from '../UI/Avatar'
 import { createPost, createReply } from '../../services/posts'
+import { processMentionsInPost } from '../../services/mentionsService'
 import TextArea from './TextArea'
 import EmojiPickerComponent from './EmojiPicker'
+import MentionAutocomplete from '../Mentions/MentionAutocomplete'
 import { Loader2, Camera, Video, X, ArrowRight } from 'lucide-react'
 import { validateFile } from '../../services/mediaService'
 
@@ -24,6 +26,10 @@ const PostComposer = ({
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isPosting, setIsPosting] = useState(false)
   const [isComposerFocused, setIsComposerFocused] = useState(isModal || isReply)
+  
+  // Estados para menciones
+  const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false)
+  
   const textareaRef = useRef(null)
 
   // Determinar placeholder dinámico
@@ -33,6 +39,36 @@ const PostComposer = ({
       return placeholder || `Responder a @${authorUsername}...`
     }
     return placeholder
+  }
+
+  // Manejar cambios en el texto y detectar menciones
+  const handleTextChange = (e) => {
+    const newText = e.target.value
+    setNewPost(newText)
+    
+    // Detectar si se está escribiendo una mención
+    const cursorPosition = e.target.selectionStart
+    const textBeforeCursor = newText.substring(0, cursorPosition)
+    const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_-]*)$/)
+    
+    if (mentionMatch && !showMentionAutocomplete) {
+      setShowMentionAutocomplete(true)
+    } else if (!mentionMatch && showMentionAutocomplete) {
+      setShowMentionAutocomplete(false)
+    }
+  }
+
+  // Manejar selección de mención
+  const handleMentionSelect = (newText, cursorPosition) => {
+    setNewPost(newText)
+    
+    // Establecer posición del cursor
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.setSelectionRange(cursorPosition, cursorPosition)
+        textareaRef.current.focus()
+      }
+    }, 0)
   }
 
   const handleFileSelect = (e) => {
@@ -80,7 +116,7 @@ const PostComposer = ({
   const uploadFileToWorker = async (file) => {
     const formData = new FormData()
     formData.append('file', file)
-    
+
     const response = await fetch(UPLOAD_ENDPOINT, {
       method: 'POST',
       body: formData,
@@ -150,7 +186,7 @@ const PostComposer = ({
           image_url: mediaType === 'image' ? mediaUrl : null,
           video_url: mediaType === 'video' ? mediaUrl : null,
         }
-
+        
         console.log('📝 Creando post normal con createPost:', postData)
         result = await createPost(postData)
       }
@@ -171,10 +207,17 @@ const PostComposer = ({
           is_disliked: result.data.is_disliked || false
         }
 
+        // Procesar menciones en el contenido
+        if (newPost.trim()) {
+          console.log('🔍 Procesando menciones en el post...')
+          await processMentionsInPost(result.data.id, newPost, user.id)
+        }
+
         // Limpiar formulario
         setNewPost('')
         setSelectedFile(null)
         setPreviewUrl(null)
+        setShowMentionAutocomplete(false)
         
         window.showSuccessAlert(isReply ? '¡Respuesta publicada!' : '¡Post creado exitosamente!')
         
@@ -272,10 +315,10 @@ const PostComposer = ({
           className="flex-shrink-0 mt-1"
         />
         
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 relative">
           <TextArea
             value={newPost}
-            onChange={(e) => setNewPost(e.target.value)}
+            onChange={handleTextChange}
             onFocus={handleComposerFocus}
             onBlur={handleComposerBlur}
             placeholder={getPlaceholder()}
@@ -283,6 +326,15 @@ const PostComposer = ({
             isModal={isModal}
             compact={compact || isReply}
             ref={textareaRef}
+          />
+
+          {/* Autocomplete de menciones */}
+          <MentionAutocomplete
+            textareaRef={textareaRef}
+            text={newPost}
+            onMentionSelect={handleMentionSelect}
+            isVisible={showMentionAutocomplete}
+            onClose={() => setShowMentionAutocomplete(false)}
           />
           
           {/* Preview de archivo - MEJORADO para replies */}
@@ -416,7 +468,7 @@ const PostComposer = ({
                   </div>
                 )}
               </div>
-              
+
               {/* Botón de envío - adaptado a replies */}
               <button
                 onClick={handleCreatePost}

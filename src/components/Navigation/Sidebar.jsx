@@ -7,14 +7,14 @@ import {
   PenTool
 } from 'lucide-react'
 
-const Sidebar = ({ onOpenPostModal }) => {
+const Sidebar = ({ onOpenPostModal, user }) => {
   const location = useLocation()
 
   const menuItems = [
     { name: 'Inicio', icon: Home, path: '/para-ti', active: location.pathname === '/para-ti' || location.pathname === '/' },
     { name: 'Explorar', icon: Search, path: '/explorar', active: location.pathname === '/explorar' },
     { name: 'Notificaciones', icon: Bell, path: '/notificaciones', active: location.pathname === '/notificaciones' },
-    { name: 'Perfil', icon: User, path: '/perfil', active: location.pathname === '/perfil' },
+    { name: 'Perfil', icon: User, path: `/user/${user?.handle || 'me'}`, active: location.pathname.startsWith('/user/') },
   ]
 
   return (

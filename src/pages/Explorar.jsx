@@ -278,7 +278,7 @@ const Explorar = () => {
         
         {/* Sección de Noticias */}
         <PageSection
-          title="Noticias del día"
+          title="Noticias del día (Proximamente)"
           subtitle="Las últimas noticias del fútbol argentino"
           icon={Clock}
         >

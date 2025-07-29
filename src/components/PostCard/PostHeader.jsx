@@ -11,7 +11,9 @@ const PostHeader = ({
   onFollow, 
   onReport, 
   isDeleting,
-  isReply = false 
+  isReply = false,
+  disableNavigation = false,
+  hideDropdown = false
 }) => {
   const formatTime = (timestamp) => {
     const date = new Date(timestamp)
@@ -30,43 +32,92 @@ const PostHeader = ({
     return text.slice(0, maxLength) + '...'
   }
 
+  const handleUserClick = (e) => {
+    if (disableNavigation) {
+      e.preventDefault()
+      e.stopPropagation()
+      // Navegar manualmente sin crear enlace HTML
+      window.location.href = `/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`
+    }
+  }
+
   const isOwner = user?.id === post.user_id
+  const userProfileUrl = `/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`
 
   return (
     <div className={`flex items-start space-x-3 p-6 pb-3 ${isReply ? 'py-4' : ''}`}>
-      <Link to={`/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}>
-        <Avatar 
-          src={post.profiles?.avatar_url}
-          alt={`Avatar de ${post.profiles?.username}`}
-          name={post.profiles?.username || 'Usuario'}
-          team={post.profiles?.team}
-          size={isReply ? "sm" : "md"}
-          className="hover:scale-105 transition-transform cursor-pointer"
-        />
-      </Link>
+      {/* Avatar */}
+      {disableNavigation ? (
+        <div onClick={handleUserClick} className="cursor-pointer">
+          <Avatar 
+            src={post.profiles?.avatar_url}
+            alt={`Avatar de ${post.profiles?.username}`}
+            name={post.profiles?.username || 'Usuario'}
+            team={post.profiles?.team}
+            size={isReply ? "sm" : "md"}
+            className="hover:scale-105 transition-transform cursor-pointer"
+          />
+        </div>
+      ) : (
+        <Link to={userProfileUrl}>
+          <Avatar 
+            src={post.profiles?.avatar_url}
+            alt={`Avatar de ${post.profiles?.username}`}
+            name={post.profiles?.username || 'Usuario'}
+            team={post.profiles?.team}
+            size={isReply ? "sm" : "md"}
+            className="hover:scale-105 transition-transform cursor-pointer"
+          />
+        </Link>
+      )}
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2">
-          <Link 
-            to={`/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}
-            className="hover:underline"
-          >
-            <h3 className={`font-bold truncate max-w-[8ch] sm:max-w-[12ch] md:max-w-[16ch] ${isReply ? 'text-sm' : ''}`} 
-                title={post.profiles?.username || 'Usuario'}>
-              {truncateText(post.profiles?.username || 'Usuario', 12)}
-            </h3>
-          </Link>
-          
-          {/* Handle (arroba) separado del username */}
-          <Link 
-            to={`/user/${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}
-            className="hover:underline"
-          >
-            <span className={`text-base-content/60 text-sm truncate max-w-[10ch] sm:max-w-[14ch] md:max-w-[18ch] ${isReply ? 'text-xs' : ''}`} 
-                  title={`@${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}>
-              @{truncateText(post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario', 10)}
+          {/* Username */}
+          {disableNavigation ? (
+            <span 
+              onClick={handleUserClick}
+              className="hover:underline cursor-pointer"
+            >
+              <h3 className={`font-bold truncate max-w-[8ch] sm:max-w-[12ch] md:max-w-[16ch] ${isReply ? 'text-sm' : ''}`} 
+                  title={post.profiles?.username || 'Usuario'}>
+                {truncateText(post.profiles?.username || 'Usuario', 12)}
+              </h3>
             </span>
-          </Link>
+          ) : (
+            <Link 
+              to={userProfileUrl}
+              className="hover:underline"
+            >
+              <h3 className={`font-bold truncate max-w-[8ch] sm:max-w-[12ch] md:max-w-[16ch] ${isReply ? 'text-sm' : ''}`} 
+                  title={post.profiles?.username || 'Usuario'}>
+                {truncateText(post.profiles?.username || 'Usuario', 12)}
+              </h3>
+            </Link>
+          )}
+          
+          {/* Handle (arroba) */}
+          {disableNavigation ? (
+            <span 
+              onClick={handleUserClick}
+              className="hover:underline cursor-pointer"
+            >
+              <span className={`text-base-content/60 text-sm truncate max-w-[10ch] sm:max-w-[14ch] md:max-w-[18ch] ${isReply ? 'text-xs' : ''}`} 
+                    title={`@${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}>
+                @{truncateText(post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario', 10)}
+              </span>
+            </span>
+          ) : (
+            <Link 
+              to={userProfileUrl}
+              className="hover:underline"
+            >
+              <span className={`text-base-content/60 text-sm truncate max-w-[10ch] sm:max-w-[14ch] md:max-w-[18ch] ${isReply ? 'text-xs' : ''}`} 
+                    title={`@${post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario'}`}>
+                @{truncateText(post.profiles?.handle || post.profiles?.username?.toLowerCase() || 'usuario', 10)}
+              </span>
+            </Link>
+          )}
           
           <span className="text-base-content/50">·</span>
           <span className={`text-base-content/50 text-sm ${isReply ? 'text-xs' : ''}`}>{formatTime(post.created_at)}</span>
@@ -100,15 +151,17 @@ const PostHeader = ({
         )}
       </div>
 
-      <PostDropdown 
-        post={post}
-        isOwner={isOwner}
-        isDeleting={isDeleting}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onFollow={onFollow}
-        onReport={onReport}
-      />
+      {!hideDropdown && (
+        <PostDropdown 
+          post={post}
+          isOwner={isOwner}
+          isDeleting={isDeleting}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onFollow={onFollow}
+          onReport={onReport}
+        />
+      )}
     </div>
   )
 }

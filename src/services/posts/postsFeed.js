@@ -9,9 +9,9 @@
 import { supabase } from '../supabaseClient.js'
 
 /**
- * Función auxiliar para contar TODAS las respuestas (recursivamente) por post
+ * Función auxiliar OPTIMIZADA para obtener conteo de replies (sin recursión)
  * @param {Array} postIds - IDs de posts principales
- * @returns {Promise<Object>} Objeto con conteos de replies totales por post
+ * @returns {Promise<Object>} Objeto con conteos de replies por post
  */
 const _getRepliesCount = async (postIds) => {
   try {
@@ -19,45 +19,22 @@ const _getRepliesCount = async (postIds) => {
       return {}
     }
 
-    console.log('🔢 _getRepliesCount - contando TODAS las replies (recursivo) para:', postIds.length, 'posts')
+    console.log('🔢 _getRepliesCount - contando replies directas para:', postIds.length, 'posts')
 
-    // Función recursiva para obtener todos los descendientes de un post
-    const getAllDescendants = async (parentIds) => {
-      if (!parentIds || parentIds.length === 0) {
-        return []
-      }
+    // Solo contar replies directas (no recursivo) para mejor performance
+    const { data: directReplies, error } = await supabase
+      .from('posts')
+      .select('parent_post_id')
+      .in('parent_post_id', postIds)
+      .eq('is_reply', true)
+      .not('parent_post_id', 'is', null)
 
-      // Obtener respuestas directas
-      const { data: directReplies, error } = await supabase
-        .from('posts')
-        .select('id, parent_post_id')
-        .in('parent_post_id', parentIds)
-        .eq('is_reply', true)
-        .not('parent_post_id', 'is', null)
-
-      if (error) {
-        console.error('Error obteniendo respuestas directas:', error)
-        return []
-      }
-
-      if (!directReplies || directReplies.length === 0) {
-        return []
-      }
-
-      // IDs de las respuestas directas
-      const directReplyIds = directReplies.map(reply => reply.id)
-      
-      // Obtener respuestas a estas respuestas (recursivo)
-      const nestedReplies = await getAllDescendants(directReplyIds)
-      
-      // Combinar respuestas directas + respuestas anidadas
-      return [...directReplies, ...nestedReplies]
+    if (error) {
+      console.error('Error obteniendo conteo de replies:', error)
+      return {}
     }
 
-    // Obtener todas las respuestas (directas + anidadas) para cada post principal
-    const allReplies = await getAllDescendants(postIds)
-
-    // Contar replies por post principal
+    // Contar replies por post
     const counts = {}
     
     // Inicializar todos los posts con 0 replies
@@ -65,41 +42,14 @@ const _getRepliesCount = async (postIds) => {
       counts[postId] = 0
     })
 
-    // Función para encontrar el post principal de una respuesta
-    const findRootPost = (reply, allRepliesMap) => {
-      let currentParent = reply.parent_post_id
-      
-      // Si el parent está en nuestros posts principales, ese es el root
-      if (postIds.includes(currentParent)) {
-        return currentParent
-      }
-      
-      // Si no, buscar recursivamente hacia arriba
-      const parentReply = allRepliesMap[currentParent]
-      if (parentReply) {
-        return findRootPost(parentReply, allRepliesMap)
-      }
-      
-      // Si no encontramos el parent, asumir que el parent_post_id directo es el root
-      return currentParent
-    }
-
-    // Crear un mapa para búsqueda rápida
-    const allRepliesMap = {}
-    allReplies.forEach(reply => {
-      allRepliesMap[reply.id] = reply
-    })
-
-    // Contar cada respuesta hacia su post principal
-    allReplies.forEach(reply => {
-      const rootPostId = findRootPost(reply, allRepliesMap)
-      if (postIds.includes(rootPostId)) {
-        counts[rootPostId] = (counts[rootPostId] || 0) + 1
+    // Contar replies directas
+    directReplies?.forEach(reply => {
+      if (postIds.includes(reply.parent_post_id)) {
+        counts[reply.parent_post_id] = (counts[reply.parent_post_id] || 0) + 1
       }
     })
 
-    console.log('📊 Conteos TOTALES de replies calculados:', counts)
-    console.log('🎯 Total de replies encontradas:', allReplies.length)
+    console.log('📊 Conteos de replies calculados:', counts)
     
     return counts
   } catch (error) {

@@ -13,7 +13,7 @@ const ParaTi = () => {
   const { user } = useAuth()
   const location = useLocation()
 
-  // Hook para auto-restaurar scroll
+  // Hook para auto-restaurar scroll - REACTIVADO
   useAutoScrollRestore()
 
   // Configuración de tabs
@@ -41,7 +41,7 @@ const ParaTi = () => {
     }
   }
 
-  // Hook de scroll infinito
+  // Hook de scroll infinito con persistencia global
   const {
     items: posts,
     loading,
@@ -55,14 +55,18 @@ const ParaTi = () => {
     loadFunction: loadFeedPosts,
     bufferSize: 20,
     loadThreshold: 5,
-    cleanupThreshold: 25,
-    postsPerLoad: 10
+    cleanupThreshold: 999999, // Deshabilitar limpieza automática
+    postsPerLoad: 10,
+    stateKey: 'para-ti-feed' // Clave única para persistir este feed
   })
 
-  // Cargar posts cuando el usuario esté disponible
+  // Cargar posts SOLO si no hay posts persistidos
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && posts.length === 0) {
+      console.log('🔄 No hay posts persistidos, cargando iniciales')
       loadInitial()
+    } else if (posts.length > 0) {
+      console.log('✅ Posts persistidos encontrados:', posts.length)
     }
   }, [user?.id])
 

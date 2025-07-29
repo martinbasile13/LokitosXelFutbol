@@ -50,6 +50,9 @@ const TextArea = forwardRef(({
       onFocus={onFocus}
       onBlur={onBlur}
       placeholder={placeholder}
+      autoCapitalize="none"
+      autoCorrect="off"
+      spellCheck="false"
       className={`textarea textarea-ghost w-full resize-none focus:outline-none overflow-hidden transition-all duration-200 ${
         compact 
           ? 'min-h-16 text-sm md:text-base placeholder:text-base-content/40'

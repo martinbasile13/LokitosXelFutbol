@@ -30,7 +30,11 @@ export const AuthProvider = ({ children }) => {
     }
     
     try {
+      console.log('🔍 AuthContext: Obteniendo perfil para userId:', userId)
       const profile = await getUserProfile(userId)
+      console.log('📋 AuthContext: Perfil obtenido:', profile)
+      console.log('🏷️ AuthContext: Handle del perfil:', profile?.handle)
+      
       // Guardar en caché para próximas veces
       if (profile) {
         profileCacheRef.current.set(userId, profile)
@@ -71,6 +75,7 @@ export const AuthProvider = ({ children }) => {
             setUserProfile({
               id: currentUser.id,
               username: 'Usuario',
+              handle: currentUser.email?.split('@')[0] || 'usuario', // ✅ Agregar handle básico
               avatar_url: null,
               team: null,
               experience_points: 0
@@ -110,6 +115,7 @@ export const AuthProvider = ({ children }) => {
               setUserProfile({
                 id: session.user.id,
                 username: 'Usuario',
+                handle: session.user.email?.split('@')[0] || 'usuario', // ✅ Agregar handle básico también aquí
                 avatar_url: null,
                 team: null,
                 experience_points: 0

@@ -4,6 +4,8 @@ const ImageModal = ({ isOpen, onClose, imageUrl, alt = "Imagen" }) => {
   if (!isOpen) return null
 
   const handleOverlayClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     if (e.target === e.currentTarget) {
       onClose()
     }
@@ -28,21 +30,33 @@ const ImageModal = ({ isOpen, onClose, imageUrl, alt = "Imagen" }) => {
       {/* Header con controles */}
       <div className="absolute top-4 right-4 z-10 flex space-x-2">
         <button
-          onClick={handleDownload}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            handleDownload()
+          }}
           className="btn btn-circle btn-sm bg-black/50 hover:bg-black/70 border-none text-white backdrop-blur-sm"
           title="Descargar imagen"
         >
           <Download className="w-4 h-4" />
         </button>
         <button
-          onClick={handleOpenInNewTab}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            handleOpenInNewTab()
+          }}
           className="btn btn-circle btn-sm bg-black/50 hover:bg-black/70 border-none text-white backdrop-blur-sm"
           title="Abrir en nueva pestaña"
         >
           <ExternalLink className="w-4 h-4" />
         </button>
         <button
-          onClick={onClose}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onClose()
+          }}
           className="btn btn-circle btn-sm bg-black/50 hover:bg-black/70 border-none text-white backdrop-blur-sm"
           title="Cerrar"
         >

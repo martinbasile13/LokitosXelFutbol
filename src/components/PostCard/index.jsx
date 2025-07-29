@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useScrollRestore } from '../shared/hooks/useScrollPosition'
 import PostHeader from './PostHeader'
 import PostContent from './PostContent'
 import PostMedia from './PostMedia'
 import PostActions from './PostActions'
+import PostDropdown from './PostDropdown'
+import Avatar from '../UI/Avatar'
+import TeamBadge from '../UI/TeamBadge'
 import { likePost, dislikePost, addPostView } from '../../services/posts'
 
 const PostCard = ({ 
@@ -16,6 +21,7 @@ const PostCard = ({
   showConnector = false
 }) => {
   const { user } = useAuth()
+  const { saveScrollPosition } = useScrollRestore()
   const [isLoading, setIsLoading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [postData, setPostData] = useState(post)
@@ -120,13 +126,21 @@ const PostCard = ({
   }
 
   const handleLike = async (event) => {
-    // Esta función ya no es necesaria, PostActions maneja todo
-    // Mantenemos solo para compatibilidad si se necesita
+    // Esta función la maneja PostActions directamente
+    // Mantenemos solo para compatibilidad
   }
 
   const handleDislike = async (event) => {
-    // Esta función ya no es necesaria, PostActions maneja todo
-    // Mantenemos solo para compatibilidad si se necesita
+    // Esta función la maneja PostActions directamente
+    // Mantenemos solo para compatibilidad
+  }
+
+  // Manejar click en toda la tarjeta
+  const handleCardClick = (e) => {
+    // Guardar posición del scroll antes de navegar
+    const currentPath = window.location.pathname
+    saveScrollPosition(currentPath)
+    console.log('💾 Guardando posición antes de navegar a post detail')
   }
 
   // Calcular margen izquierdo para replies anidadas
@@ -151,48 +165,76 @@ const PostCard = ({
   }
 
   return (
-    <div className={`
-      block bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200 relative
-      ${getReplyMargin()}
-      ${getReplyClasses()}
-      ${isReply ? 'border-l-2 border-blue-200' : ''}
-    `}>
+    <div 
+      data-post-id={postData.id}
+      className={`
+        relative bg-base-100 border-b border-base-300 hover:shadow-md transition-shadow duration-200
+        ${getReplyMargin()}
+        ${getReplyClasses()}
+        ${isReply ? 'border-l-2 border-blue-200' : ''}
+      `}
+    >
       {/* Conector visual para replies */}
       {showConnector && isReply && (
         <div className="absolute -left-2 top-0 w-4 h-6 border-l-2 border-b-2 border-blue-200 rounded-bl-lg"></div>
       )}
 
-      <PostHeader 
-        post={postData}
-        user={user}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onFollow={handleFollow}
-        onReport={handleReport}
-        isDeleting={isDeleting}
-        isReply={isReply}
-      />
+      {/* Link que envuelve toda la tarjeta EXCEPTO las acciones y dropdown */}
+      <Link 
+        to={`/post/${postData.id}`}
+        onClick={handleCardClick}
+        className="block cursor-pointer"
+      >
+        <PostHeader 
+          post={postData}
+          user={user}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onFollow={handleFollow}
+          onReport={handleReport}
+          isDeleting={isDeleting}
+          isReply={isReply}
+          disableNavigation={true}
+          hideDropdown={true}
+        />
 
-      <PostContent 
-        post={postData}
-        onClick={handlePostClick}
-        isReply={isReply}
-      />
+        <PostContent 
+          post={postData}
+          onClick={handlePostClick}
+          isReply={isReply}
+          disableNavigation={true}
+        />
 
-      <PostMedia 
-        post={postData}
-        isReply={isReply}
-      />
+        <PostMedia 
+          post={postData}
+          isReply={isReply}
+        />
+      </Link>
 
-      {/* Acciones normales restauradas */}
-      <PostActions 
-        post={postData}
-        user={user}
-        isLoading={isLoading}
-        onLike={handleLike}
-        onDislike={handleDislike}
-        isReply={isReply}
-      />
+      {/* PostDropdown FUERA del Link */}
+      <div className={`absolute ${isReply ? 'top-4 right-4' : 'top-6 right-6'}`} onClick={(e) => e.stopPropagation()}>
+        <PostDropdown 
+          post={postData}
+          isOwner={user?.id === postData.user_id}
+          isDeleting={isDeleting}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onFollow={handleFollow}
+          onReport={handleReport}
+        />
+      </div>
+
+      {/* Acciones FUERA del Link para que funcionen independientemente */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <PostActions 
+          post={postData}
+          user={user}
+          isLoading={isLoading}
+          onLike={handleLike}
+          onDislike={handleDislike}
+          isReply={isReply}
+        />
+      </div>
     </div>
   )
 }

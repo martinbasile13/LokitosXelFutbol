@@ -1,11 +1,16 @@
+import MentionText from '../Mentions/MentionText'
+
 const CommentContent = ({ comment }) => {
   return (
     <div className="mb-3">
       {/* Solo mostrar el emoji si no hay texto real */}
       {comment.content && comment.content !== '📎' && (
-        <p className="text-sm leading-relaxed break-words whitespace-pre-wrap mb-2">
-          {comment.content}
-        </p>
+        <div className="text-sm leading-relaxed break-words whitespace-pre-wrap mb-2">
+          <MentionText 
+            text={comment.content}
+            className="text-base-content"
+          />
+        </div>
       )}
       
       {/* Imagen del comentario */}

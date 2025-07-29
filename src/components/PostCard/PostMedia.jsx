@@ -3,12 +3,14 @@ import { Play, Volume2, VolumeX, Maximize2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ImageModal from '../Media/ImageModal'
 import { applyVideoPreferences } from '../../services/videoPreferences'
+import { useScrollRestore } from '../shared/hooks/useScrollPosition'
 
 // Variable global para controlar qué video está reproduciéndose
 let currentPlayingVideo = null
 
 const PostMedia = ({ post, isReply = false }) => {
   const navigate = useNavigate()
+  const { saveScrollPosition } = useScrollRestore()
   const [showImageModal, setShowImageModal] = useState(false)
   const [isVideoVisible, setIsVideoVisible] = useState(false)
   const [isVideoPlaying, setIsVideoPlaying] = useState(false)
@@ -134,15 +136,33 @@ const PostMedia = ({ post, isReply = false }) => {
   }
 
   const handleVideoClick = (e) => {
+    console.log('🎬 Video click detectado:', {
+      target: e.target.tagName,
+      currentTarget: e.currentTarget.tagName,
+      isMobile: window.innerWidth < 768,
+      userAgent: navigator.userAgent,
+      postId: post.id,
+      hasVideoUrl: !!post.video_url
+    })
+    
     const isMobile = window.innerWidth < 768
+    
+    // En móvil, SIEMPRE navegar al modo TikTok
     if (isMobile && post.video_url) {
       e.preventDefault()
       e.stopPropagation()
+      
+      // UNIFICAR: Guardar posición igual que los posts normales
+      const currentPath = window.location.pathname
+      saveScrollPosition(currentPath)
+      console.log('💾 Guardando posición antes de navegar al VideoViewer')
+      
       navigate(`/video/${post.id}`)
       return
     }
 
-    if (isVideoMuted && !hasBeenUnmuted) {
+    // En desktop, manejar mute/unmute solo si no es móvil
+    if (!isMobile && isVideoMuted && !hasBeenUnmuted) {
       e.preventDefault()
       e.stopPropagation()
       
@@ -303,7 +323,13 @@ const PostMedia = ({ post, isReply = false }) => {
       {/* Video */}
       {post.video_url && (
         <div className={`px-6 pb-3 ${isReply ? 'px-4 pb-2' : ''}`}>
-          <div className={`mt-3 relative group cursor-pointer overflow-hidden rounded-xl ${isReply ? 'mt-2' : ''}`}>
+          {/* Wrapper que aísla completamente el evento del video */}
+          <div 
+            className={`mt-3 relative group cursor-pointer overflow-hidden rounded-xl ${isReply ? 'mt-2' : ''}`}
+            onClick={handleVideoClick}
+            onTouchStart={handleVideoClick} // Para dispositivos móviles
+            style={{ touchAction: 'manipulation' }} // Evitar zoom en doble tap
+          >
             <video 
               ref={videoRef}
               src={post.video_url} 
@@ -313,12 +339,11 @@ const PostMedia = ({ post, isReply = false }) => {
               autoPlay={false}
               playsInline
               preload="metadata"
-              className="w-full h-auto object-contain bg-black border-2 border-black rounded-xl"
+              className="w-full h-auto object-contain bg-black border-2 border-black rounded-xl pointer-events-none"
               style={{
                 maxHeight: isReply ? '300px' : '500px',
                 minHeight: isReply ? '150px' : '200px'
               }}
-              onClick={handleVideoClick}
               onError={(e) => {
                 console.error('Error cargando video:', post.video_url);
                 e.target.style.display = 'none';

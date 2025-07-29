@@ -15,6 +15,16 @@ import {
   VolumeX
 } from 'lucide-react'
 
+// Detectar Chrome para aplicar correcciones específicas
+const isChrome = () => {
+  return /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
+}
+
+// Detectar iOS Safari
+const isIOSSafari = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+}
+
 const VideoViewer = () => {
   const { postId } = useParams()
   const navigate = useNavigate()
@@ -33,24 +43,52 @@ const VideoViewer = () => {
   const [currentOffset, setCurrentOffset] = useState(0)
   const isLoadingRef = useRef(false)
   
+  // Estados específicos para Chrome
+  const [chromeScrollFix, setChromeScrollFix] = useState(false)
+  const scrollTimeoutRef = useRef(null)
+  
   // Configuración del buffer inteligente
   const BUFFER_SIZE = 15 // Máximo de videos en memoria
   const LOAD_THRESHOLD = 3 // Cargar más cuando queden 3 videos por ver
   const CLEANUP_THRESHOLD = 20 // Limpiar cuando superamos 20 videos
   const VIDEOS_PER_LOAD = 5 // Cantidad de videos a cargar cada vez
 
+  // Detectar Chrome y aplicar correcciones
+  useEffect(() => {
+    if (isChrome()) {
+      setChromeScrollFix(true)
+      console.log('🔧 Chrome detectado - Aplicando correcciones específicas')
+    }
+  }, [])
+
   useEffect(() => {
     loadVideos()
   }, [postId])
 
   useEffect(() => {
-    // Auto-play el video actual con delay
+    // Auto-play el video actual con delay más largo para Chrome
+    const delay = isChrome() ? 300 : 100
     const timer = setTimeout(() => {
       const currentVideo = videoRefs.current[currentIndex]
       if (currentVideo && isPlaying) {
-        currentVideo.play().catch(console.error)
+        // Para Chrome, intentar play con más persistencia
+        if (isChrome()) {
+          const attemptPlay = async () => {
+            try {
+              await currentVideo.play()
+            } catch (error) {
+              console.warn('Chrome play attempt failed, retrying...', error)
+              setTimeout(() => {
+                currentVideo.play().catch(console.error)
+              }, 100)
+            }
+          }
+          attemptPlay()
+        } else {
+          currentVideo.play().catch(console.error)
+        }
       }
-    }, 100)
+    }, delay)
 
     return () => clearTimeout(timer)
   }, [currentIndex, isPlaying])
@@ -60,17 +98,56 @@ const VideoViewer = () => {
       setLoading(true)
       isLoadingRef.current = true
       
-      const result = await getVideoFeed(BUFFER_SIZE, 0, postId)
+      console.log('🎬 Cargando videos con postId:', postId, 'userId:', user?.id)
+      
+      // Corregir llamada a getVideoFeed - el postId debe ir como startFromPostId (3er parámetro)
+      // y userId como 4to parámetro
+      const result = await getVideoFeed(BUFFER_SIZE, 0, postId, user?.id)
+      
+      console.log('📊 Resultado de getVideoFeed:', result)
+      
       if (result.success && result.posts.length > 0) {
+        console.log('🎯 Videos cargados:', result.posts.length)
+        console.log('🔍 Buscando video con ID:', postId, 'en', result.posts.map(v => v.id))
+        
         setVideos(result.posts)
         setCurrentOffset(BUFFER_SIZE)
         setHasMoreVideos(result.posts.length === BUFFER_SIZE)
         
         // Encontrar el índice del video inicial
         if (postId) {
-          const index = result.posts.findIndex(video => video.id === parseInt(postId))
+          // No usar parseInt para UUIDs, comparar directamente como strings
+          const index = result.posts.findIndex(video => video.id === postId || video.id === parseInt(postId))
+          console.log('📍 Video encontrado en índice:', index)
           setCurrentIndex(index >= 0 ? index : 0)
+          
+          // Scroll automático al video encontrado después de que se rendericen los videos
+          if (index >= 0) {
+            setTimeout(() => {
+              const container = containerRef.current
+              if (container) {
+                const targetScrollTop = index * container.clientHeight
+                console.log('📜 Haciendo scroll a posición:', targetScrollTop, 'para video en índice:', index)
+                container.scrollTo({
+                  top: targetScrollTop,
+                  behavior: 'instant' // Usar 'instant' para ir inmediatamente
+                })
+              }
+            }, 100) // Pequeño delay para que se rendericen los videos
+          }
+          
+          if (index === -1) {
+            console.warn('⚠️ Video no encontrado en el feed, mostrando primer video')
+            console.log('🔍 Comparando:', { 
+              postId, 
+              postIdType: typeof postId,
+              firstVideoId: result.posts[0]?.id,
+              firstVideoIdType: typeof result.posts[0]?.id 
+            })
+          }
         }
+      } else {
+        console.error('❌ Error o no hay videos:', result)
       }
     } catch (error) {
       console.error('Error cargando videos:', error)
@@ -133,6 +210,21 @@ const VideoViewer = () => {
     const { scrollTop, clientHeight } = e.target
     const newIndex = Math.round(scrollTop / clientHeight)
     
+    // Para Chrome, usar debounce más agresivo para evitar problemas de scroll
+    if (isChrome()) {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        processScrollChange(newIndex)
+      }, 50)
+    } else {
+      processScrollChange(newIndex)
+    }
+  }
+
+  const processScrollChange = (newIndex) => {
     if (newIndex !== currentIndex && newIndex >= 0 && newIndex < videos.length) {
       // Pausar video anterior
       const prevVideo = videoRefs.current[currentIndex]
@@ -274,25 +366,31 @@ const VideoViewer = () => {
         </div>
       </div>
 
-      {/* Container de videos con scroll snap mejorado */}
+      {/* Container de videos con scroll snap mejorado y correcciones para Chrome */}
       <div 
         ref={containerRef}
-        className="h-full overflow-y-auto snap-y snap-mandatory"
+        className={`h-full overflow-y-auto snap-y snap-mandatory ${chromeScrollFix ? 'video-container-chrome' : ''}`}
         onScroll={handleScroll}
         style={{ 
-          scrollBehavior: 'smooth',
+          scrollBehavior: isChrome() ? 'auto' : 'smooth', // Chrome tiene problemas con smooth
           WebkitOverflowScrolling: 'touch',
-          height: '100vh',
-          height: '100dvh'
+          height: isChrome() ? '100vh' : '100dvh', // Chrome prefiere vh estático
+          // Correcciones específicas para Chrome
+          ...(isChrome() && {
+            scrollSnapType: 'y mandatory',
+            scrollSnapStop: 'always',
+            overscrollBehavior: 'none'
+          })
         }}
       >
         {videos.map((video, index) => (
           <div 
             key={`${video.id}-${index}`} // Key único para evitar problemas al limpiar
-            className="relative w-full snap-start bg-black flex items-center justify-center"
+            className={`relative w-full snap-start bg-black flex items-center justify-center ${chromeScrollFix ? 'video-item-chrome' : ''}`}
             style={{ 
-              height: '100vh',
-              height: '100dvh'
+              height: isChrome() ? '100vh' : '100dvh', // Chrome maneja mejor vh fijo
+              scrollSnapAlign: 'start',
+              scrollSnapStop: 'always'
             }}
           >
             {/* Video con adaptación automática según orientación */}
@@ -317,13 +415,25 @@ const VideoViewer = () => {
               }}
               onLoadedData={() => {
                 if (index === currentIndex && isPlaying) {
-                  videoRefs.current[index]?.play().catch(console.error)
+                  // Para Chrome, añadir delay extra
+                  const delay = isChrome() ? 200 : 0
+                  setTimeout(() => {
+                    videoRefs.current[index]?.play().catch(console.error)
+                  }, delay)
                 }
               }}
               onLoadedMetadata={(e) => {
                 const video = e.target
                 if (video.videoWidth && video.videoHeight) {
                   setVideos(prev => [...prev])
+                }
+              }}
+              onCanPlay={() => {
+                // Chrome necesita este evento adicional para reproducir videos correctamente
+                if (isChrome() && index === currentIndex && isPlaying) {
+                  setTimeout(() => {
+                    videoRefs.current[index]?.play().catch(console.error)
+                  }, 50)
                 }
               }}
               style={{
@@ -435,8 +545,7 @@ const VideoViewer = () => {
           <div 
             className="w-full snap-start bg-black flex items-center justify-center"
             style={{ 
-              height: '100vh',
-              height: '100dvh'
+              height: isChrome() ? '100vh' : '100dvh'
             }}
           >
             <div className="text-white text-center">
@@ -451,8 +560,7 @@ const VideoViewer = () => {
           <div 
             className="w-full snap-start bg-black flex items-center justify-center"
             style={{ 
-              height: '100vh',
-              height: '100dvh'
+              height: isChrome() ? '100vh' : '100dvh'
             }}
           >
             <div className="text-white text-center">

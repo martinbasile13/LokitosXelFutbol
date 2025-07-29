@@ -40,7 +40,6 @@ const Notificaciones = () => {
   // Configuración de tabs
   const tabs = [
     { id: 'all', label: 'Todas', icon: Bell },
-    { id: 'verified', label: 'Verificadas', icon: CheckCheck },
     { id: 'mentions', label: 'Menciones', icon: MessageCircle }
   ]
 
@@ -133,12 +132,19 @@ const Notificaciones = () => {
     }
 
     // Navegar según el tipo de notificación
-    if (notification.target_id) {
+    if (notification.post_id) {
+      // Para menciones, comentarios y likes que tienen post_id
+      if (notification.type === 'mention' || notification.type === 'like' || notification.type === 'comment') {
+        navigate(`/post/${notification.post_id}`)
+      }
+    } else if (notification.target_id) {
+      // Para compatibilidad con notificaciones que usan target_id
       if (notification.type === 'like' || notification.type === 'comment') {
         navigate(`/post/${notification.target_id}`)
       }
-    } else if (notification.type === 'follow' && notification.actor?.id) {
-      navigate(`/user/${notification.actor.id}`)
+    } else if (notification.type === 'follow' && notification.from_user_id) {
+      // Para notificaciones de seguimiento
+      navigate(`/user/${notification.from_user_id}`)
     }
   }
 
@@ -147,6 +153,7 @@ const Notificaciones = () => {
       case 'follow': return UserPlus
       case 'like': return Heart
       case 'comment': return MessageCircle
+      case 'mention': return MessageCircle // Agregar soporte para menciones
       case 'recommended_post': return Star
       default: return Bell
     }
@@ -171,6 +178,7 @@ const Notificaciones = () => {
           notification.type === 'follow' ? 'bg-blue-100 text-blue-600' :
           notification.type === 'like' ? 'bg-red-100 text-red-600' :
           notification.type === 'comment' ? 'bg-green-100 text-green-600' :
+          notification.type === 'mention' ? 'bg-purple-100 text-purple-600' :
           'bg-yellow-100 text-yellow-600'
         }`}>
           <IconComponent className="w-4 h-4" />

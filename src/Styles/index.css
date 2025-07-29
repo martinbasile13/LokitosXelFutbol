@@ -50,6 +50,31 @@
   display: none;
 }
 
+/* Correcciones específicas para Chrome */
+@supports (-webkit-appearance: none) {
+  /* Chrome-specific fixes para VideoViewer */
+  .video-container-chrome {
+    scroll-snap-type: y mandatory !important;
+    scroll-snap-stop: always !important;
+    overscroll-behavior: none !important;
+    overflow-scrolling: touch !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  .video-item-chrome {
+    scroll-snap-align: start !important;
+    scroll-snap-stop: always !important;
+  }
+  
+  /* Fix para videos en Chrome */
+  video {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+}
+
 /* Scroll snap mejorado para iOS Safari (Tailwind no lo maneja completamente) */
 @supports (-webkit-touch-callout: none) {
   .snap-y {

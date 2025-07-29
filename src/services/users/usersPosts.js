@@ -151,52 +151,28 @@ export const getUserPostsCount = async (userId) => {
 }
 
 /**
- * Obtener posts recomendados basados en la actividad del usuario - USANDO TABLA FOLLOWERS
+ * Obtener posts recomendados basados en las visitas de los últimos 2 días
  * @param {string} userId - ID del usuario
- * @param {number} limit - Límite de posts recomendados
- * @returns {Promise<Array>} Posts recomendados
+ * @param {number} limit - Límite de posts recomendados (por defecto 3)
+ * @returns {Promise<Array>} Posts más visitados de los últimos 2 días
  */
-export const getRecommendedPosts = async (userId, limit = 10) => {
+export const getRecommendedPosts = async (userId, limit = 3) => {
   try {
     if (!userId) {
       return []
     }
 
-    console.log('🎯 getRecommendedPosts - obteniendo posts recomendados usando tabla followers')
+    console.log('🎯 getRecommendedPosts - obteniendo posts más visitados de los últimos 2 días')
 
-    // Obtener usuarios que sigue - USANDO TABLA FOLLOWERS
-    const { data: following } = await supabase
-      .from('followers')
-      .select('following_id')
-      .eq('follower_id', userId)
+    // Calcular fecha de hace 2 días
+    const twoDaysAgo = new Date()
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+    const twoDaysAgoISO = twoDaysAgo.toISOString()
 
-    const followedIds = following?.map(f => f.following_id) || []
+    console.log('📅 Buscando posts desde:', twoDaysAgoISO)
 
-    if (followedIds.length === 0) {
-      // Si no sigue a nadie, mostrar posts populares
-      const { data: popularPosts } = await supabase
-        .from('posts')
-        .select(`
-          id,
-          title,
-          content,
-          image_url,
-          video_url,
-          views_count,
-          likes_count,
-          dislikes_count,
-          created_at,
-          updated_at,
-          user_id
-        `)
-        .order('likes_count', { ascending: false })
-        .limit(limit)
-
-      return await getPostsWithUserData(popularPosts || [], userId)
-    }
-
-    // Obtener posts recientes de usuarios seguidos
-    const { data: recommendedPosts, error } = await supabase
+    // Obtener posts de los últimos 2 días ordenados por visitas
+    const { data: topViewedPosts, error } = await supabase
       .from('posts')
       .select(`
         id,
@@ -211,23 +187,60 @@ export const getRecommendedPosts = async (userId, limit = 10) => {
         updated_at,
         user_id
       `)
-      .in('user_id', followedIds)
-      .order('created_at', { ascending: false })
+      .gte('created_at', twoDaysAgoISO)
+      .not('views_count', 'is', null)
+      .order('views_count', { ascending: false })
       .limit(limit)
 
     if (error) {
-      console.error('Error obteniendo posts recomendados:', error)
+      console.error('Error obteniendo posts más visitados:', error)
       return []
     }
 
-    if (!recommendedPosts || recommendedPosts.length === 0) {
-      return []
+    if (!topViewedPosts || topViewedPosts.length === 0) {
+      console.log('📊 No se encontraron posts con visitas en los últimos 2 días')
+      
+      // Fallback: obtener posts más visitados de la última semana
+      const oneWeekAgo = new Date()
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+      const oneWeekAgoISO = oneWeekAgo.toISOString()
+
+      const { data: fallbackPosts } = await supabase
+        .from('posts')
+        .select(`
+          id,
+          title,
+          content,
+          image_url,
+          video_url,
+          views_count,
+          likes_count,
+          dislikes_count,
+          created_at,
+          updated_at,
+          user_id
+        `)
+        .gte('created_at', oneWeekAgoISO)
+        .not('views_count', 'is', null)
+        .order('views_count', { ascending: false })
+        .limit(limit)
+
+      if (!fallbackPosts || fallbackPosts.length === 0) {
+        return []
+      }
+
+      // Enriquecer con datos adicionales
+      const postsWithData = await getPostsWithUserData(fallbackPosts, userId)
+      console.log('📊 Posts recomendados (fallback última semana):', postsWithData.length)
+      return postsWithData
     }
 
     // Enriquecer con datos adicionales
-    const postsWithData = await getPostsWithUserData(recommendedPosts, userId)
+    const postsWithData = await getPostsWithUserData(topViewedPosts, userId)
 
-    console.log('📊 Posts recomendados obtenidos:', postsWithData.length)
+    console.log('📊 Posts más visitados de los últimos 2 días:', postsWithData.length)
+    console.log('👀 Visitas de posts encontrados:', postsWithData.map(p => p.views_count))
+    
     return postsWithData
   } catch (error) {
     console.error('💥 Error en getRecommendedPosts:', error)
