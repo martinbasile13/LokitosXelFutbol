@@ -21,6 +21,7 @@ export {
   getSuggestedUsers,
   getUserFollowers,
   getUserFollowing,
+  diagnoseFollowersTable,
   
   // Búsqueda de usuarios
   searchUsers,

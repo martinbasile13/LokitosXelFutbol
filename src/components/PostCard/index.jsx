@@ -179,7 +179,7 @@ const PostCard = ({
         <div className="absolute -left-2 top-0 w-4 h-6 border-l-2 border-b-2 border-blue-200 rounded-bl-lg"></div>
       )}
 
-      {/* Link que envuelve toda la tarjeta EXCEPTO las acciones y dropdown */}
+      {/* Link que envuelve SOLO header y content - NO el media */}
       <Link 
         to={`/post/${postData.id}`}
         onClick={handleCardClick}
@@ -204,12 +204,15 @@ const PostCard = ({
           isReply={isReply}
           disableNavigation={true}
         />
+      </Link>
 
+      {/* PostMedia FUERA del Link para manejo independiente de navegación */}
+      <div onClick={(e) => e.stopPropagation()}>
         <PostMedia 
           post={postData}
           isReply={isReply}
         />
-      </Link>
+      </div>
 
       {/* PostDropdown FUERA del Link */}
       <div className={`absolute ${isReply ? 'top-4 right-4' : 'top-6 right-6'}`} onClick={(e) => e.stopPropagation()}>

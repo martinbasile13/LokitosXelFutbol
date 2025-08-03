@@ -2,7 +2,6 @@
 
 @plugin "daisyui"; 
 
-
 @plugin "daisyui/theme" {
   name: "dim";
   default: false;
@@ -231,4 +230,110 @@
   height: 2px;
   background: #cfd9de;
   border-radius: 2px;
+}
+
+/* Estilo para resaltar menciones mientras escribes */
+.mention-highlight-input {
+  background: linear-gradient(to right, transparent 0%, transparent 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+/* Aplicar color azul a las menciones en los textareas */
+.textarea-with-mentions {
+  position: relative;
+}
+
+.textarea-with-mentions::before {
+  content: attr(data-highlighted-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  color: transparent;
+  background: transparent;
+  font: inherit;
+  padding: inherit;
+  border: inherit;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Hacer que las menciones sean azules */
+.mention-inline {
+  color: #1DA1F2 !important;
+  font-weight: 500 !important;
+}
+
+/* Mejoras para touch responsiveness en móvil */
+.video-container {
+  /* Reducir delay de touch en iOS */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  
+  /* Mejorar scroll en móvil */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+/* Prevenir clicks accidentales durante scroll */
+.scrolling .video-container {
+  pointer-events: none;
+}
+
+.scrolling .video-container * {
+  pointer-events: none;
+}
+
+/* Estados de touch para videos */
+.video-touch-active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Feedback visual para taps válidos */
+.valid-tap-feedback {
+  animation: tapPulse 0.2s ease-out;
+}
+
+@keyframes tapPulse {
+  0% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: scale(0.95); 
+    opacity: 0.8; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+/* Mejorar área de scroll en móvil */
+@media (max-width: 768px) {
+  .post-feed {
+    /* Permitir solo scroll vertical */
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+  
+  /* Videos más sensibles al touch válido */
+  .video-wrapper {
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Indicadores de estado de touch */
+  .touch-indicator {
+    pointer-events: none;
+    z-index: 999;
+  }
 }

@@ -20,7 +20,9 @@ export {
   unfollowUser,
   isFollowing,
   getUserFollowers,
-  getUserFollowing
+  getUserFollowing,
+  diagnoseFollowersTable,
+  diagnoseFollowersRLS
 } from './usersRelationships.js'
 
 // ========== USER SEARCH ==========

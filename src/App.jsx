@@ -7,6 +7,7 @@ import ParaTi from './pages/ParaTi'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
 import UserProfile from './pages/UserProfile'
+import FollowersFollowing from './pages/FollowersFollowing'
 import Notificaciones from './pages/Notificaciones'
 import AQuienSeguir from './pages/AQuienSeguir'
 import Explorar from './pages/Explorar' // Importar el nuevo componente
@@ -55,6 +56,10 @@ function App() {
                   
                   {/* Rutas de perfil unificadas - TODAS usan /user/:userHandle */}
                   <Route path="/user/:userHandle" element={<UserProfile />} />
+                  
+                  {/* Rutas de seguidores y seguidos */}
+                  <Route path="/user/:userHandle/followers" element={<FollowersFollowing />} />
+                  <Route path="/user/:userHandle/following" element={<FollowersFollowing />} />
                   
                   {/* Redirigir /perfil a /user/mi-handle */}
                   <Route path="/perfil" element={<Navigate to="/user/me" replace />} />

@@ -9,7 +9,7 @@
 import { supabase } from '../supabaseClient.js'
 
 /**
- * Obtener estadísticas completas de un usuario - USANDO TABLA FOLLOWERS
+ * PASO 2: Obtener estadísticas de usuario CON CONTEOS DE FOLLOWERS
  * @param {string} userId - ID del usuario
  * @returns {Promise<Object>} Estadísticas del usuario
  */
@@ -19,51 +19,95 @@ export const getUserStats = async (userId) => {
       throw new Error('userId es requerido')
     }
 
-    // Obtener estadísticas en paralelo
-    const [postsResult, followersResult, followingResult] = await Promise.all([
-      // Contar posts del usuario
-      supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId),
-      
-      // Contar seguidores - USANDO TABLA FOLLOWERS
-      supabase
-        .from('followers')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', userId),
-      
-      // Contar seguidos - USANDO TABLA FOLLOWERS
-      supabase
-        .from('followers')
-        .select('*', { count: 'exact', head: true })
-        .eq('follower_id', userId)
-    ])
+    console.log('📊 PASO 2: Probando getUserStats con conteos de followers...')
 
-    const postsCount = postsResult.count || 0
-    const followersCount = followersResult.count || 0
-    const followingCount = followingResult.count || 0
-
-    // Obtener total de vistas y likes de posts
-    const { data: postsData } = await supabase
+    // Obtener conteo de posts (sabemos que funciona)
+    const { data: postsData, error: postsError } = await supabase
       .from('posts')
-      .select('views_count, likes_count')
+      .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
 
-    const totalViews = postsData?.reduce((sum, post) => sum + (post.views_count || 0), 0) || 0
-    const totalLikes = postsData?.reduce((sum, post) => sum + (post.likes_count || 0), 0) || 0
+    const postsCount = (!postsError && postsData) ? postsData.count || 0 : 0
 
-    console.log('📊 getUserStats usando tabla followers correcta')
+    // PASO 2: Probar conteos de followers con timeout corto
+    let followersCount = 0
+    let followingCount = 0
+
+    console.log('🔍 PASO 2: Probando conteo de seguidores...')
+    try {
+      const followersResult = await Promise.race([
+        supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', userId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 2000)
+        )
+      ])
+
+      if (!followersResult.error) {
+        followersCount = followersResult.count || 0
+        console.log('✅ PASO 2: Conteo de seguidores exitoso:', followersCount)
+      } else {
+        console.warn('⚠️ PASO 2: Error en conteo de seguidores:', followersResult.error.message)
+      }
+    } catch (error) {
+      console.warn('⚠️ PASO 2: Timeout/Error en seguidores:', error.message)
+    }
+
+    console.log('🔍 PASO 2: Probando conteo de siguiendo...')
+    try {
+      const followingResult = await Promise.race([
+        supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', userId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 2000)
+        )
+      ])
+
+      if (!followingResult.error) {
+        followingCount = followingResult.count || 0
+        console.log('✅ PASO 2: Conteo de siguiendo exitoso:', followingCount)
+      } else {
+        console.warn('⚠️ PASO 2: Error en conteo de siguiendo:', followingResult.error.message)
+      }
+    } catch (error) {
+      console.warn('⚠️ PASO 2: Timeout/Error en siguiendo:', error.message)
+    }
+
+    // Obtener total de vistas y likes de posts (esto funciona)
+    let totalViews = 0
+    let totalLikes = 0
     
-    return {
-      posts: postsCount,              // Cambiado de posts_count a posts
-      followers: followersCount,      // Cambiado de followers_count a followers
-      following: followingCount,      // Cambiado de following_count a following
+    try {
+      const { data: postsStatsData, error: postsStatsError } = await supabase
+        .from('posts')
+        .select('views_count, likes_count')
+        .eq('user_id', userId)
+
+      if (!postsStatsError && postsStatsData) {
+        totalViews = postsStatsData.reduce((sum, post) => sum + (post.views_count || 0), 0)
+        totalLikes = postsStatsData.reduce((sum, post) => sum + (post.likes_count || 0), 0)
+      }
+    } catch (postsStatsErr) {
+      console.warn('⚠️ Error obteniendo datos de posts para estadísticas:', postsStatsErr)
+    }
+
+    const stats = {
+      posts: postsCount,
+      followers: followersCount,
+      following: followingCount,
       total_likes: totalLikes,
       total_views: totalViews
     }
+
+    console.log('✅ PASO 2: getUserStats completado:', stats)
+    return stats
+
   } catch (error) {
-    console.error('Error en getUserStats:', error)
+    console.error('💥 Error crítico en getUserStats:', error)
     return {
       posts: 0,
       followers: 0,
@@ -142,6 +186,116 @@ export const getUserRanking = async (userId) => {
       posts_rank: null,
       likes_rank: null,
       followers_rank: null
+    }
+  }
+}
+
+/**
+ * Obtener estadísticas completas de un usuario - CON MANEJO ROBUSTO DE ERRORES 406
+ * @param {string} userId - ID del usuario
+ * @returns {Promise<Object>} Estadísticas del usuario
+ */
+export const getUserStatsRobust = async (userId) => {
+  try {
+    if (!userId) {
+      throw new Error('userId es requerido')
+    }
+
+    console.log('📊 getUserStats - MODO ROBUSTO con manejo de errores 406')
+
+    // Obtener posts count (siempre debería funcionar)
+    const { data: postsData, error: postsError } = await supabase
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    const postsCount = (!postsError && postsData) ? postsData.count || 0 : 0
+
+    // Intentar obtener conteos de followers con manejo robusto de errores
+    let followersCount = 0
+    let followingCount = 0
+
+    try {
+      // Intento 1: Conteo de seguidores
+      const followersResult = await Promise.race([
+        supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', userId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 3000)
+        )
+      ])
+
+      if (!followersResult.error) {
+        followersCount = followersResult.count || 0
+        console.log('✅ Seguidores obtenidos:', followersCount)
+      } else {
+        console.warn('⚠️ Error 406 en seguidores, usando valor por defecto')
+      }
+    } catch (error) {
+      console.warn('⚠️ Timeout o error en seguidores:', error.message)
+    }
+
+    try {
+      // Intento 2: Conteo de siguiendo
+      const followingResult = await Promise.race([
+        supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', userId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 3000)
+        )
+      ])
+
+      if (!followingResult.error) {
+        followingCount = followingResult.count || 0
+        console.log('✅ Siguiendo obtenidos:', followingCount)
+      } else {
+        console.warn('⚠️ Error 406 en siguiendo, usando valor por defecto')
+      }
+    } catch (error) {
+      console.warn('⚠️ Timeout o error en siguiendo:', error.message)
+    }
+
+    // Obtener total de vistas y likes de posts
+    let totalViews = 0
+    let totalLikes = 0
+    
+    try {
+      const { data: postsStatsData, error: postsStatsError } = await supabase
+        .from('posts')
+        .select('views_count, likes_count')
+        .eq('user_id', userId)
+
+      if (!postsStatsError && postsStatsData) {
+        totalViews = postsStatsData.reduce((sum, post) => sum + (post.views_count || 0), 0)
+        totalLikes = postsStatsData.reduce((sum, post) => sum + (post.likes_count || 0), 0)
+      }
+    } catch (postsStatsErr) {
+      console.warn('⚠️ Error obteniendo datos de posts para estadísticas:', postsStatsErr)
+    }
+
+    const stats = {
+      posts: postsCount,
+      followers: followersCount,
+      following: followingCount,
+      total_likes: totalLikes,
+      total_views: totalViews
+    }
+
+    console.log('✅ getUserStats completado (modo robusto):', stats)
+    return stats
+
+  } catch (error) {
+    console.error('💥 Error crítico en getUserStats:', error)
+    return {
+      posts: 0,
+      followers: 0,
+      following: 0,
+      total_likes: 0,
+      total_views: 0
     }
   }
 }

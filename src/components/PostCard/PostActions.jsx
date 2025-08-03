@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { 
   MessageCircle, 
   Heart,
+  HeartCrack,
   ThumbsDown,
   ThumbsUp,
   ChartNoAxesColumn
@@ -185,7 +186,7 @@ const PostActions = ({
               ? '' 
               : 'group-hover:bg-blue-50'
           }`}>
-            <ThumbsUp className={`w-5 h-5 transition-all duration-200 ${
+            <Heart className={`w-5 h-5 transition-all duration-200 ${
               userVote === 1 ? 'fill-current scale-110' : 'group-hover:text-gray-600'
             }`} />
           </div>
@@ -201,7 +202,7 @@ const PostActions = ({
         <button 
           className={`flex items-center space-x-2 transition-all duration-200 group ${
             userVote === -1
-              ? 'text-white-600' 
+              ? 'text-base-content/80' 
               : 'text-base-content/60'
           }`}
           onClick={handleDislike}
@@ -212,13 +213,11 @@ const PostActions = ({
               ? ''
               : 'group-hover:bg-red-50'
           }`}>
-            <ThumbsDown className={`w-5 h-5 transition-all duration-200 ${
-              userVote === -1 ? 'fill-current scale-110' : 'group-hover:text-gray-600'
+            <HeartCrack className={`w-5 h-5 transition-all duration-200 ${
+              userVote === -1 ? 'fill-current' : 'group-hover:text-gray-400'
             }`} />
           </div>
-          <span className={`text-sm font-medium transition-all duration-200 ${
-            userVote === -1 ? 'text-base-content/60' : ''
-          }`}>
+          <span className={`text-sm font-medium transition-all duration-200`}>
             {dislikesCount}
           </span>
           <span className="text-sm text-base-content/60 hidden sm:inline">No me gusta</span>

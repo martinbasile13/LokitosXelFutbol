@@ -20,8 +20,27 @@ const PostMedia = ({ post, isReply = false }) => {
   const [videoDuration, setVideoDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  
+  // Estados para manejo de touch y prevención de clicks accidentales
+  const [touchState, setTouchState] = useState({
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    moved: false,
+    isScrolling: false
+  })
+  
   const videoRef = useRef(null)
   const observerRef = useRef(null)
+  const touchTimeoutRef = useRef(null)
+
+  // Configuración de sensibilidad para touch
+  const TOUCH_CONFIG = {
+    MAX_TAP_DURATION: 200,    // Máximo tiempo para considerar tap
+    MAX_TAP_MOVEMENT: 15,     // Máximo movimiento para considerar tap
+    SCROLL_THRESHOLD: 10,     // Mínimo movimiento para detectar scroll
+    CLICK_DELAY: 100          // Delay antes de ejecutar click
+  }
 
   // Intersection Observer para autoplay de videos
   useEffect(() => {
@@ -135,14 +154,93 @@ const PostMedia = ({ post, isReply = false }) => {
     setShowImageModal(true)
   }
 
+  // Mejorado manejo de touch para videos
+  const handleVideoTouchStart = (e) => {
+    const touch = e.touches[0]
+    setTouchState({
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startTime: Date.now(),
+      moved: false,
+      isScrolling: false
+    })
+
+    // Limpiar timeout anterior si existe
+    if (touchTimeoutRef.current) {
+      clearTimeout(touchTimeoutRef.current)
+      touchTimeoutRef.current = null
+    }
+  }
+
+  const handleVideoTouchMove = (e) => {
+    if (!e.touches[0]) return
+
+    const touch = e.touches[0]
+    const deltaX = Math.abs(touch.clientX - touchState.startX)
+    const deltaY = Math.abs(touch.clientY - touchState.startY)
+    const totalMovement = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+    // Detectar si se está scrolleando
+    if (totalMovement > TOUCH_CONFIG.SCROLL_THRESHOLD) {
+      setTouchState(prev => ({
+        ...prev,
+        moved: true,
+        isScrolling: deltaY > deltaX // Es scroll vertical si Y > X
+      }))
+    }
+  }
+
+  const handleVideoTouchEnd = (e) => {
+    const touchDuration = Date.now() - touchState.startTime
+    const deltaX = Math.abs(e.changedTouches[0].clientX - touchState.startX)
+    const deltaY = Math.abs(e.changedTouches[0].clientY - touchState.startY)
+    const totalMovement = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+    // Es un tap válido si:
+    // 1. No se movió mucho
+    // 2. Fue rápido
+    // 3. No se detectó scroll
+    const isValidTap = 
+      totalMovement < TOUCH_CONFIG.MAX_TAP_MOVEMENT &&
+      touchDuration < TOUCH_CONFIG.MAX_TAP_DURATION &&
+      !touchState.isScrolling &&
+      !touchState.moved
+
+    console.log('🎯 Touch Analysis:', {
+      movement: totalMovement,
+      duration: touchDuration,
+      isScrolling: touchState.isScrolling,
+      moved: touchState.moved,
+      isValidTap,
+      postId: post.id
+    })
+
+    if (isValidTap) {
+      // Agregar pequeño delay para asegurar que no es parte de un scroll
+      touchTimeoutRef.current = setTimeout(() => {
+        handleVideoClick(e)
+      }, TOUCH_CONFIG.CLICK_DELAY)
+    }
+
+    // Reset touch state
+    setTouchState({
+      startX: 0,
+      startY: 0,
+      startTime: 0,
+      moved: false,
+      isScrolling: false
+    })
+  }
+
   const handleVideoClick = (e) => {
     console.log('🎬 Video click detectado:', {
-      target: e.target.tagName,
-      currentTarget: e.currentTarget.tagName,
+      target: e.target?.tagName,
+      currentTarget: e.currentTarget?.tagName,
       isMobile: window.innerWidth < 768,
       userAgent: navigator.userAgent,
       postId: post.id,
-      hasVideoUrl: !!post.video_url
+      hasVideoUrl: !!post.video_url,
+      touchMoved: touchState.moved
     })
     
     const isMobile = window.innerWidth < 768
@@ -174,6 +272,15 @@ const PostMedia = ({ post, isReply = false }) => {
       }
     }
   }
+
+  // Cleanup de timeouts
+  useEffect(() => {
+    return () => {
+      if (touchTimeoutRef.current) {
+        clearTimeout(touchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const toggleVideoPlay = () => {
     const video = videoRef.current
@@ -323,13 +430,33 @@ const PostMedia = ({ post, isReply = false }) => {
       {/* Video */}
       {post.video_url && (
         <div className={`px-6 pb-3 ${isReply ? 'px-4 pb-2' : ''}`}>
-          {/* Wrapper que aísla completamente el evento del video */}
+          {/* Wrapper que maneja touch events de manera inteligente */}
           <div 
-            className={`mt-3 relative group cursor-pointer overflow-hidden rounded-xl ${isReply ? 'mt-2' : ''}`}
-            onClick={handleVideoClick}
-            onTouchStart={handleVideoClick} // Para dispositivos móviles
-            style={{ touchAction: 'manipulation' }} // Evitar zoom en doble tap
+            className={`mt-3 relative group cursor-pointer overflow-hidden rounded-xl ${isReply ? 'mt-2' : ''} select-none`}
+            // Touch events para móvil con detección inteligente
+            onTouchStart={handleVideoTouchStart}
+            onTouchMove={handleVideoTouchMove}
+            onTouchEnd={handleVideoTouchEnd}
+            // Click para desktop
+            onClick={window.innerWidth >= 768 ? handleVideoClick : undefined}
+            style={{ 
+              touchAction: 'pan-y', // Permitir solo scroll vertical
+              WebkitTouchCallout: 'none', // Evitar menú contextual en iOS
+              WebkitTapHighlightColor: 'transparent' // Quitar highlight azul
+            }}
           >
+            {/* Indicador visual de toque válido en móvil */}
+            {window.innerWidth < 768 && (
+              <div className="absolute top-4 left-4 z-20 pointer-events-none">
+                <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm opacity-0 group-active:opacity-100 transition-opacity duration-150">
+                  <span className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    Toca para ver en pantalla completa
+                  </span>
+                </div>
+              </div>
+            )}
+
             <video 
               ref={videoRef}
               src={post.video_url} 

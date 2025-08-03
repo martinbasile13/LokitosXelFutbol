@@ -18,6 +18,7 @@ const RightPanel = () => {
 
   useEffect(() => {
     if (user?.id) {
+      console.log('✅ RightPanel: Cargando datos de usuarios sugeridos y estadísticas')
       loadSuggestedUsers()
       loadUserStats()
     }

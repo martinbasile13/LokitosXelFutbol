@@ -15,6 +15,8 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
       throw new Error('userId es requerido')
     }
 
+    console.log('📥 Obteniendo notificaciones para userId:', userId, 'tipo:', type)
+
     let query = supabase
       .from('notifications')
       .select(`
@@ -24,12 +26,7 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
         data,
         read,
         created_at,
-        actor:actor_id (
-          id,
-          username,
-          avatar_url,
-          team
-        )
+        actor_id
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -39,14 +36,43 @@ export const getNotifications = async (userId, type = 'all', limit = 20) => {
       query = query.eq('type', type)
     }
 
-    const { data, error } = await query
+    const { data: notifications, error } = await query
 
     if (error) {
       console.error('❌ Error obteniendo notificaciones:', error)
       throw error
     }
 
-    return data || []
+    if (!notifications || notifications.length === 0) {
+      return []
+    }
+
+    // Obtener perfiles de actores por separado
+    const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))]
+    
+    let profiles = []
+    if (actorIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, team')
+        .in('id', actorIds)
+
+      if (profilesError) {
+        console.error('⚠️ Error obteniendo perfiles de actores:', profilesError)
+      } else {
+        profiles = profilesData || []
+      }
+    }
+
+    // Combinar notificaciones con perfiles
+    const notificationsWithProfiles = notifications.map(notification => ({
+      ...notification,
+      actor: profiles.find(p => p.id === notification.actor_id) || null
+    }))
+
+    console.log('✅ Notificaciones obtenidas:', notificationsWithProfiles.length)
+    return notificationsWithProfiles
+
   } catch (error) {
     console.error('💥 Error en getNotifications:', error)
     throw error
@@ -180,6 +206,8 @@ export const getNotificationText = (notification) => {
       return `A ${actorName} le gustó tu post`
     case 'comment':
       return `${actorName} comentó tu post`
+    case 'mention':
+      return `${actorName} te mencionó en un post`
     case 'recommended_post':
       return `Nuevo post de ${actorName}`
     default:

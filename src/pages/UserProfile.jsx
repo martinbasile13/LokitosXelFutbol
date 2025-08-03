@@ -151,6 +151,8 @@ const UserProfile = () => {
       }
       
       // Cargar el resto de datos usando el userId obtenido
+      console.log('✅ REHABILITANDO verificación de seguimiento')
+      
       const [statsResult, postsResult, followingResult] = await Promise.all([
         getUserStats(profileResult.id),
         getUserPosts(profileResult.id),
@@ -188,13 +190,18 @@ const UserProfile = () => {
           ...prev,
           followers: isFollowingUser ? prev.followers - 1 : prev.followers + 1
         }))
+        
+        const message = isFollowingUser 
+          ? 'Has dejado de seguir a este usuario' 
+          : '¡Ahora sigues a este usuario!'
+        window.showSuccessAlert?.(message)
       } else {
         console.error('Error al seguir/dejar de seguir:', result.error)
-        alert('Error al actualizar el seguimiento')
+        window.showErrorAlert?.('Error al actualizar el seguimiento')
       }
     } catch (error) {
       console.error('Error en handleFollowToggle:', error)
-      alert('Error al actualizar el seguimiento')
+      window.showErrorAlert?.('Error al actualizar el seguimiento')
     } finally {
       setIsFollowLoading(false)
     }
@@ -631,16 +638,22 @@ const UserProfile = () => {
 
           {/* Lado derecho: Estadísticas de seguimiento */}
           <div className="flex flex-col items-end space-y-2 ml-4">
-            {/* Seguidores y Siguiendo */}
+            {/* Seguidores y Siguiendo - AHORA CON ENLACES */}
             <div className="flex items-center space-x-4 text-sm">
-              <div className="text-center">
+              <Link 
+                to={`/user/${userProfile.handle}/followers`}
+                className="text-center hover:bg-base-200/50 rounded-lg px-2 py-1 transition-colors"
+              >
                 <div className="font-bold text-lg">{userStats.followers}</div>
                 <div className="text-base-content/70">Seguidores</div>
-              </div>
-              <div className="text-center">
+              </Link>
+              <Link 
+                to={`/user/${userProfile.handle}/following`}
+                className="text-center hover:bg-base-200/50 rounded-lg px-2 py-1 transition-colors"
+              >
                 <div className="font-bold text-lg">{userStats.following}</div>
                 <div className="text-base-content/70">Siguiendo</div>
-              </div>
+              </Link>
             </div>
             
             {/* Website si existe - Debajo de las estadísticas */}

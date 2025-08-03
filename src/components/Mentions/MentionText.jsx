@@ -19,7 +19,7 @@ const MentionText = ({ text, className = '', disableLinks = false }) => {
             return (
               <span
                 key={index}
-                className="text-blue-500 font-medium cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                className="text-[#1DA1F2] font-medium cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -37,7 +37,7 @@ const MentionText = ({ text, className = '', disableLinks = false }) => {
             <Link
               key={index}
               to={`/user/${username.toLowerCase()}`}
-              className="text-blue-500 hover:text-blue-600 hover:underline font-medium transition-colors"
+              className="text-[#1DA1F2] hover:text-blue-600 hover:underline font-medium transition-colors"
               onClick={(e) => {
                 e.stopPropagation() // Evitar que se propague al PostCard
               }}

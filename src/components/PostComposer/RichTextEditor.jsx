@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef } from 'react'
 
-const TextArea = forwardRef(({
+const RichTextEditor = forwardRef(({
   value,
   onChange,
   onFocus,
@@ -20,6 +20,13 @@ const TextArea = forwardRef(({
     }
   }, [value, ref])
 
+  // Auto-focus si es modal
+  useEffect(() => {
+    if (isModal && ref.current) {
+      ref.current.focus()
+    }
+  }, [isModal, ref])
+
   // Sincronizar scroll entre textarea y overlay
   const handleScroll = () => {
     if (ref.current && overlayRef.current) {
@@ -27,30 +34,6 @@ const TextArea = forwardRef(({
       overlayRef.current.scrollLeft = ref.current.scrollLeft
     }
   }
-
-  // Generar HTML con menciones resaltadas - manteniendo el resto del texto visible
-  const getHighlightedText = (text) => {
-    if (!text) return ''
-    
-    // Escapar HTML
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-    
-    // Solo resaltar menciones, el resto del texto mantiene color normal
-    return escaped.replace(
-      /(@[a-zA-Z0-9_-]+)/g, 
-      '<span style="color: #1DA1F2; font-weight: 500;">$1</span>'
-    )
-  }
-
-  // Auto-focus si es modal
-  useEffect(() => {
-    if (isModal && ref.current) {
-      ref.current.focus()
-    }
-  }, [isModal, ref])
 
   // Calcular alturas dinámicamente según el modo
   const getMinHeight = () => {
@@ -69,38 +52,58 @@ const TextArea = forwardRef(({
     return isComposerFocused ? '400px' : '200px'
   }
 
+  // Función para renderizar el texto con menciones resaltadas
+  const renderTextWithMentions = (text) => {
+    if (!text) return ''
+    
+    // Escapar HTML
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    
+    // Solo resaltar menciones, el resto del texto mantiene color normal
+    return escaped.replace(
+      /(@[a-zA-Z0-9_-]+)/g,
+      '<span style="color: #1DA1F2; font-weight: 500;">$1</span>'
+    )
+  }
+
   const sharedStyle = {
     minHeight: getMinHeight(),
     maxHeight: getMaxHeight(),
     fontFamily: 'inherit',
     fontSize: 'inherit',
     lineHeight: 'inherit',
+    letterSpacing: 'inherit',
     padding: '12px',
     whiteSpace: 'pre-wrap',
     wordWrap: 'break-word'
   }
 
-  const sharedClasses = `w-full resize-none overflow-hidden transition-all duration-200 ${
+  const sharedClasses = `w-full resize-none focus:outline-none overflow-hidden transition-all duration-200 border-none bg-transparent ${
     compact 
-      ? 'min-h-16 text-sm md:text-base'
+      ? 'min-h-16 text-sm md:text-base placeholder:text-base-content/40'
       : isComposerFocused 
-        ? 'min-h-24 md:min-h-32 text-lg md:text-xl' 
+        ? 'min-h-24 md:min-h-32 text-lg md:text-xl placeholder:text-base-content/40' 
         : 'min-h-16 md:min-h-20 text-base md:text-lg'
   }`
 
   return (
     <div className="relative">
-      {/* Overlay con menciones resaltadas - solo visible cuando hay texto */}
+      {/* Capa de fondo con texto resaltado - solo visible cuando hay texto */}
       {value && (
-        <div
+        <div 
           ref={overlayRef}
           className={`absolute inset-0 pointer-events-none z-10 ${sharedClasses} text-base-content`}
           style={sharedStyle}
-          dangerouslySetInnerHTML={{ __html: getHighlightedText(value) }}
+          dangerouslySetInnerHTML={{ 
+            __html: renderTextWithMentions(value) 
+          }}
         />
       )}
       
-      {/* Textarea real - ahora siempre visible */}
+      {/* Textarea normal - ahora siempre visible cuando no hay overlay */}
       <textarea
         ref={ref}
         value={value}
@@ -112,16 +115,16 @@ const TextArea = forwardRef(({
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck="false"
-        className={`textarea textarea-ghost relative bg-transparent ${value ? 'text-transparent' : 'text-base-content'} focus:outline-none ${value ? 'z-20' : 'z-30'} ${sharedClasses} placeholder:text-base-content/40`}
-        style={{
+        className={`relative ${value ? 'text-transparent' : 'text-current'} ${value ? 'z-20' : 'z-30'} ${sharedClasses}`}
+        style={{ 
           ...sharedStyle,
-          caretColor: 'currentColor'
+          caretColor: 'currentColor' // Mantener el cursor visible
         }}
       />
     </div>
   )
 })
 
-TextArea.displayName = 'TextArea'
+RichTextEditor.displayName = 'RichTextEditor'
 
-export default TextArea
+export default RichTextEditor

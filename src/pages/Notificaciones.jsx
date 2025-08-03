@@ -40,7 +40,7 @@ const Notificaciones = () => {
   // Configuración de tabs
   const tabs = [
     { id: 'all', label: 'Todas', icon: Bell },
-    { id: 'mentions', label: 'Menciones', icon: MessageCircle }
+    { id: 'mention', label: 'Menciones', icon: MessageCircle } // ✅ Cambiar de 'mentions' a 'mention'
   ]
 
   // Estado de la página usando nuestro hook
@@ -73,11 +73,12 @@ const Notificaciones = () => {
     try {
       const recommendedPosts = await getRecommendedPosts(user.id, 3)
       setRecentData({
-        followers: [],
-        likes: [],
-        comments: [],
+        followers: [], // TEMPORALMENTE VACÍO PARA EVITAR 406
+        likes: [], // TEMPORALMENTE VACÍO PARA EVITAR 406
+        comments: [], // TEMPORALMENTE VACÍO PARA EVITAR 406
         recommendedPosts: recommendedPosts || []
       })
+      console.log('⚠️ Notificaciones: Datos de followers temporalmente deshabilitados para evitar errores 406')
     } catch (error) {
       console.error('Error cargando datos recientes:', error)
     }
@@ -132,19 +133,15 @@ const Notificaciones = () => {
     }
 
     // Navegar según el tipo de notificación
-    if (notification.post_id) {
-      // Para menciones, comentarios y likes que tienen post_id
-      if (notification.type === 'mention' || notification.type === 'like' || notification.type === 'comment') {
-        navigate(`/post/${notification.post_id}`)
+    if (notification.type === 'mention' || notification.type === 'like' || notification.type === 'comment') {
+      // Para menciones, usar el post_id del campo data
+      const postId = notification.data?.post_id || notification.target_id
+      if (postId) {
+        navigate(`/post/${postId}`)
       }
-    } else if (notification.target_id) {
-      // Para compatibilidad con notificaciones que usan target_id
-      if (notification.type === 'like' || notification.type === 'comment') {
-        navigate(`/post/${notification.target_id}`)
-      }
-    } else if (notification.type === 'follow' && notification.from_user_id) {
-      // Para notificaciones de seguimiento
-      navigate(`/user/${notification.from_user_id}`)
+    } else if (notification.type === 'follow' && notification.actor?.id) {
+      // Para seguimientos, navegar al perfil del actor
+      navigate(`/user/${notification.actor.id}`)
     }
   }
 

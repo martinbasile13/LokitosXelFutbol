@@ -13,7 +13,8 @@ const EmojiPickerComponent = ({
   const onEmojiClick = (emojiData) => {
     const emoji = emojiData.emoji
     onEmojiSelect(emoji)
-    setShowEmojiPicker(false)
+    // No cerrar el picker automáticamente para permitir múltiples selecciones
+    // setShowEmojiPicker(false) - comentado para mantener abierto
   }
 
   // Cerrar emoji picker cuando se hace click afuera
